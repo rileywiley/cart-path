@@ -36,10 +36,10 @@ MAX_AGE_DAYS = 7
 # FDOT Open Data Hub — Maximum Speed Limit TDA
 FDOT_GEOJSON_URL = (
     "https://services1.arcgis.com/O1JpcwDW8sjYuddV/arcgis/rest/services/"
-    "Maximum_Speed/FeatureServer/0/query"
+    "Maximum_Speed_Limit_TDA/FeatureServer/0/query"
 )
-# Fallback: paginated REST API
-FDOT_PAGE_SIZE = 1000
+# Paginated REST API (service max is 2000)
+FDOT_PAGE_SIZE = 2000
 
 
 def get_pilot_bbox(center_lat: float, center_lon: float, radius_miles: float) -> tuple:
@@ -144,8 +144,8 @@ def download_fdot_data(
 
 def extract_fdot_speed(row) -> float | None:
     """Extract speed limit in MPH from an FDOT feature row."""
-    # FDOT fields vary; common field names for speed limit
-    for field in ["MAXSPEED", "MAX_SPEED", "SPEED_LIM", "SPEEDLIMIT", "max_speed", "maxspeed"]:
+    # FDOT Maximum_Speed_Limit_TDA uses "SPEED" as the field name
+    for field in ["SPEED", "MAXSPEED", "MAX_SPEED", "SPEED_LIM", "SPEEDLIMIT", "max_speed", "maxspeed"]:
         val = row.get(field)
         if val is not None and val != "" and val != 0:
             try:
