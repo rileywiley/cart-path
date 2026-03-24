@@ -52,6 +52,7 @@ body {
 .map-container {
   position: absolute;
   inset: 0;
+  background: #e5e7eb;
 }
 
 .map-token-warning {

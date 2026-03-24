@@ -2,7 +2,8 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 
 // Token set via environment variable at build time
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || '';
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || '';
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
 const SPEED_COLORS = {
   legal_low: '#22c55e',    // green — ≤25 MPH
@@ -23,7 +24,7 @@ export default function Map({ center, route, userLocation }) {
 
   // Initialize map
   useEffect(() => {
-    if (map.current) return;
+    if (map.current || !MAPBOX_TOKEN) return;
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
@@ -135,9 +136,13 @@ export default function Map({ center, route, userLocation }) {
 
   return (
     <div ref={mapContainer} className="map-container" role="application" aria-label="Map">
-      {!mapboxgl.accessToken && (
+      {!MAPBOX_TOKEN && (
         <div className="map-token-warning" role="alert">
-          Set VITE_MAPBOX_TOKEN to enable the map.
+          <h2>Map unavailable</h2>
+          <p>Set <code>VITE_MAPBOX_TOKEN</code> in <code>client/.env</code> to enable the map.</p>
+          <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>
+            Get a free token at mapbox.com
+          </p>
         </div>
       )}
     </div>
