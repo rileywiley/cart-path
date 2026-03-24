@@ -1,0 +1,24 @@
+# CartPath — Python dependencies
+# Install: pip install -r requirements.txt
+
+# Data pipeline
+geopandas>=0.14,<1.0
+shapely>=2.0,<3.0
+pandas>=2.0,<3.0
+requests>=2.31,<3.0
+osmnx>=1.9,<2.0
+
+# FDOT data ingestion
+pyarrow>=14.0          # for reading FDOT shapefiles/parquet efficiently
+fiona>=1.9,<2.0        # geopandas I/O backend
+
+# Speed inference
+# osm-legal-default-speeds is a JS library — we'll use its data via JSON lookup
+
+# Backend API (Phase 2)
+fastapi>=0.110,<1.0
+uvicorn[standard]>=0.27,<1.0
+httpx>=0.27,<1.0       # async HTTP client for geocode proxy
+
+# Testing
+pytest>=8.0,<9.0
