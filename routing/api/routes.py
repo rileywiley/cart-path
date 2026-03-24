@@ -1,4 +1,3 @@
-from __future__ import annotations
 """
 CartPath — Routing Endpoint
 ==============================
@@ -9,6 +8,7 @@ Includes fallback routing with non-compliant segment annotations.
 import json
 import os
 import uuid
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -56,12 +56,12 @@ class RouteSegment(BaseModel):
     road_name: str
     distance_miles: float
     duration_minutes: float
-    speed_limit: float | None = None
-    surface_type: str | None = None
+    speed_limit: Optional[float] = None
+    surface_type: Optional[str] = None
     compliant: bool = True
 
 
-async def query_osrm(start: Coordinates, end: Coordinates) -> dict | None:
+async def query_osrm(start: Coordinates, end: Coordinates) -> Optional[dict]:
     """Query OSRM for a route between two points."""
     coords = f"{start.lon},{start.lat};{end.lon},{end.lat}"
     url = f"{OSRM_URL}/route/v1/driving/{coords}"
