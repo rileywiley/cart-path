@@ -19,6 +19,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
+  const [lastStartCoords, setLastStartCoords] = useState(null);
 
   useEffect(() => {
     trackEvent('app_opened');
@@ -36,6 +37,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     setRoute(null);
+    setLastStartCoords(start);
 
     trackEvent('route_requested', {
       start_lat: start.lat,
@@ -51,7 +53,7 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ start, end }),
-          signal: AbortSignal.timeout(3000),
+          signal: AbortSignal.timeout(10000),
         });
 
         if (!resp.ok) {
@@ -117,6 +119,7 @@ export default function App() {
               route={route}
               onSave={() => setShowSaved(true)}
               userLocation={userLocation}
+              startCoords={lastStartCoords}
             />
           </>
         )}

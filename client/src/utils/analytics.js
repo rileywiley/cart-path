@@ -57,22 +57,24 @@ export function trackEvent(eventName, payload = {}) {
 
 /**
  * Track page load performance via Web Vitals.
- * Called automatically after the page loads.
+ * Uses PerformanceObserver for accurate LCP measurement.
  */
 export function trackPageLoad() {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
 
-  window.addEventListener('load', () => {
-    setTimeout(() => {
-      const navigation = performance.getEntriesByType('navigation')[0];
-      if (navigation) {
+  try {
+    new PerformanceObserver((entryList) => {
+      const entries = entryList.getEntries();
+      const lcpEntry = entries[entries.length - 1]; // last LCP entry is the final one
+      if (lcpEntry) {
         trackEvent('page_load_time', {
-          lcp: Math.round(navigation.loadEventEnd - navigation.startTime),
-          dom_interactive: Math.round(navigation.domInteractive - navigation.startTime),
+          lcp: Math.round(lcpEntry.startTime),
         });
       }
-    }, 0);
-  });
+    }).observe({ type: 'largest-contentful-paint', buffered: true });
+  } catch {
+    // PerformanceObserver not supported — skip
+  }
 }
 
 // Auto-track page load

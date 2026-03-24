@@ -9,6 +9,7 @@ const STEPS = {
 export default function Onboarding({ onComplete }) {
   const [step, setStep] = useState(STEPS.SPLASH);
   const [locationStatus, setLocationStatus] = useState(null);
+  const [location, setLocation] = useState(null);
 
   const handleGetStarted = () => {
     setStep(STEPS.LOCATION);
@@ -19,12 +20,8 @@ export default function Onboarding({ onComplete }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocationStatus('granted');
+        setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         setStep(STEPS.DISCLAIMER);
-        // Store location for later
-        window._cartpathLocation = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-        };
       },
       () => {
         setLocationStatus('denied');
@@ -41,7 +38,7 @@ export default function Onboarding({ onComplete }) {
 
   const handleAcceptDisclaimer = () => {
     localStorage.setItem('cartpath_disclaimer', 'accepted');
-    onComplete(window._cartpathLocation || null);
+    onComplete(location);
   };
 
   if (step === STEPS.SPLASH) {

@@ -8,6 +8,7 @@ Usage:
 """
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,12 +16,21 @@ from fastapi.staticfiles import StaticFiles
 
 from .geocode import router as geocode_router
 from .health import router as health_router
-from .routes import router as routes_router
+from .routes import load_speed_data, router as routes_router
+
+
+@asynccontextmanager
+async def lifespan(app):
+    # Load speed classification data once at startup
+    load_speed_data()
+    yield
+
 
 app = FastAPI(
     title="CartPath API",
     description="Golf cart navigation routing API — routes on roads ≤35 MPH",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # CORS — allow the frontend dev server and production origins

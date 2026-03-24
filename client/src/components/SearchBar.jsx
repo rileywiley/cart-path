@@ -127,7 +127,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
       {suggestions.length > 0 && (
         <ul className="suggestions" role="listbox" aria-label="Address suggestions">
           {suggestions.map((s, i) => (
-            <li key={i} role="option" onClick={() => handleSelectSuggestion(s)}>
+            <li key={s.place_name || i} role="option" onClick={() => handleSelectSuggestion(s)}>
               <span className="suggestion-name">{s.name}</span>
               <span className="suggestion-detail">{s.place_name}</span>
             </li>

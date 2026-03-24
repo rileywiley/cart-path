@@ -23,16 +23,16 @@ MAX_SPEED_MPH = 35
 DEFAULT_CART_SPEED_MPH = 23
 METERS_PER_MILE = 1609.34
 
-# Cache speed classification data at startup
-_speed_data: dict | None = None
+# Speed data loaded at startup via load_speed_data()
+_speed_data: dict = {}
 
 
-def get_speed_data() -> dict:
+def load_speed_data():
+    """Load speed classification data. Called once at app startup."""
     global _speed_data
-    if _speed_data is None and os.path.exists(SPEED_DATA_PATH):
+    if os.path.exists(SPEED_DATA_PATH):
         with open(SPEED_DATA_PATH) as f:
             _speed_data = json.load(f)
-    return _speed_data or {}
 
 
 class Coordinates(BaseModel):
@@ -89,7 +89,6 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
     Analyze route steps for speed limit compliance.
     Returns (compliance_level, warnings, segments).
     """
-    speed_data = get_speed_data()
     warnings = []
     segments = []
     has_noncompliant = False
@@ -99,15 +98,12 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
         for step in leg.get("steps", []):
             road_name = step.get("name", "Unknown road")
             distance_m = step.get("distance", 0)
-            duration_s = step.get("duration", 0)
             distance_miles = distance_m / METERS_PER_MILE
-            duration_minutes = duration_s / 60
 
             # Recalculate duration at cart speed (23 MPH)
-            if distance_miles > 0:
-                duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60
+            duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60 if distance_miles > 0 else 0
 
-            # Check compliance via annotations or speed data
+            # Determine speed limit and compliance
             speed_limit = None
             compliant = True
 
@@ -117,10 +113,12 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
                 speeds = annotation.get("speed", [])
                 if speeds:
                     avg_speed_ms = sum(speeds) / len(speeds)
-                    speed_limit_est = avg_speed_ms * 2.237  # m/s to mph
+                    speed_limit = round(avg_speed_ms * 2.237, 0)  # m/s to mph
 
-            # Check segment name against known non-compliant roads
-            # In practice, the Lua profile handles most of this
+            # Check against the 35 MPH threshold
+            if speed_limit is not None and speed_limit > MAX_SPEED_MPH:
+                compliant = False
+
             segment = RouteSegment(
                 road_name=road_name,
                 distance_miles=round(distance_miles, 2),
@@ -170,11 +168,10 @@ async def compute_route(req: RouteRequest):
     route = data["routes"][0]
     geometry = route.get("geometry", {})
     distance_m = route.get("distance", 0)
-    duration_s = route.get("duration", 0)
 
     distance_miles = distance_m / METERS_PER_MILE
     # Recalculate duration at fixed cart speed (23 MPH)
-    duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60
+    duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60 if distance_miles > 0 else 0
 
     # Analyze compliance
     compliance, warnings, segments = analyze_route_compliance(route)

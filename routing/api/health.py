@@ -6,7 +6,7 @@ GET /api/health — checks OSRM status and data freshness.
 
 import json
 import os
-import time
+from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter
@@ -53,8 +53,8 @@ async def health_check():
 
             # Check staleness
             if timestamp:
-                data_time = time.mktime(time.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ"))
-                age_days = (time.time() - data_time) / 86400
+                data_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                age_days = (datetime.now(timezone.utc) - data_time).total_seconds() / 86400
                 status["data_age_days"] = round(age_days, 1)
                 if age_days > STALENESS_DAYS:
                     status["warnings"].append(

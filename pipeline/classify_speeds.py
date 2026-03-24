@@ -66,8 +66,8 @@ def parse_speed(raw: str) -> float | None:
             val = float(raw.replace("km/h", "").replace("kmh", "").strip())
             return round(val * 0.621371, 1)
         else:
-            val = float(raw)
-            return round(val * 0.621371, 1) if val > 100 else val
+            # In the US pilot region, assume unitless values are MPH
+            return float(raw)
     except ValueError:
         return None
 

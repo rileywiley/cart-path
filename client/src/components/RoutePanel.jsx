@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { trackEvent } from '../utils/analytics';
 
-export default function RoutePanel({ route, onSave, userLocation }) {
+export default function RoutePanel({ route, onSave, userLocation, startCoords }) {
   const [showSegments, setShowSegments] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -21,7 +21,7 @@ export default function RoutePanel({ route, onSave, userLocation }) {
       summary: route.summary,
       distance_miles: route.distance_miles,
       duration_minutes: route.duration_minutes,
-      start: userLocation || { lat: 0, lon: 0 },
+      start: startCoords || userLocation || { lat: 0, lon: 0 },
       end: route.route_geometry?.coordinates?.at(-1)
         ? { lon: route.route_geometry.coordinates.at(-1)[0], lat: route.route_geometry.coordinates.at(-1)[1] }
         : { lat: 0, lon: 0 },
