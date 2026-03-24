@@ -1,0 +1,11 @@
+road_type,count,has_speed_%,has_surface_%,inferred_speed,cart_legal,confidence
+primary,7670,81.1,97.8,40-55,False,medium
+primary_link,1023,3.1,45.0,25-45,maybe,low
+secondary,7781,45.5,88.6,35-55,False,medium
+secondary_link,538,4.6,41.3,25-40,maybe,low
+tertiary,11890,18.9,52.6,25-35,True,medium
+tertiary_link,573,3.7,37.3,25-35,True,medium
+residential,62963,3.9,20.5,15-30,True,high
+unclassified,5162,7.0,32.4,25-45,maybe,low
+living_street,95,3.2,30.5,10-20,True,high
+service,143183,0.3,9.6,10-25,True,high

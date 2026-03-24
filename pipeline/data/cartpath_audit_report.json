@@ -1,0 +1,186 @@
+{
+  "config": {
+    "center": {
+      "lat": 28.5641,
+      "lon": -81.3089
+    },
+    "radius_miles": 30,
+    "road_types": [
+      "primary",
+      "primary_link",
+      "secondary",
+      "secondary_link",
+      "tertiary",
+      "tertiary_link",
+      "residential",
+      "unclassified",
+      "living_street",
+      "service"
+    ],
+    "query_timestamp": "2026-03-24T16:51:22Z"
+  },
+  "summary": {
+    "total_ways": 240878,
+    "speed_explicit_pct": 6.4,
+    "surface_tagged_pct": 20.7
+  },
+  "cart_legal_estimate": {
+    "definitely_legal": 6187,
+    "likely_legal": 213571,
+    "likely_illegal": 14815,
+    "unknown": 6305
+  },
+  "speed_distribution": {
+    "35": 1799,
+    "25": 2552,
+    "40": 2137,
+    "55": 950,
+    "45": 4945,
+    "30": 1012,
+    "10": 207,
+    "50": 1010,
+    "15": 364,
+    "5": 54,
+    "20": 199,
+    "65": 58,
+    "60": 27
+  },
+  "surface_values": {
+    "asphalt": 42743,
+    "(none)": 190983,
+    "concrete": 941,
+    "dirt": 136,
+    "unpaved": 879,
+    "paved": 3722,
+    "compacted": 50,
+    "sand": 51,
+    "crushed_limestone": 1,
+    "fine_gravel": 10,
+    "gravel": 52,
+    "paving_stones": 97,
+    "bricks": 1132,
+    "brick": 3,
+    "ground": 42,
+    "grass": 14,
+    "dirt/sand": 1,
+    "wood": 1,
+    "concrete:plates": 10,
+    "pebblestone": 2,
+    "gravel,_sand": 1,
+    "private_driveway": 1,
+    "sett": 5,
+    "concrete:tiles": 1
+  },
+  "by_highway_type": {
+    "primary": {
+      "count": 7670,
+      "has_maxspeed": 6221,
+      "has_surface": 7502,
+      "surface_paved": 7502,
+      "surface_unpaved": 0,
+      "surface_unknown": 168,
+      "speed_lte_35": 761,
+      "speed_gt_35": 5460,
+      "speed_unknown": 1449
+    },
+    "tertiary": {
+      "count": 11890,
+      "has_maxspeed": 2244,
+      "has_surface": 6250,
+      "surface_paved": 6248,
+      "surface_unpaved": 2,
+      "surface_unknown": 5640,
+      "speed_lte_35": 1396,
+      "speed_gt_35": 848,
+      "speed_unknown": 9646
+    },
+    "residential": {
+      "count": 62963,
+      "has_maxspeed": 2449,
+      "has_surface": 12938,
+      "surface_paved": 12573,
+      "surface_unpaved": 365,
+      "surface_unknown": 50025,
+      "speed_lte_35": 2344,
+      "speed_gt_35": 105,
+      "speed_unknown": 60514
+    },
+    "service": {
+      "count": 143183,
+      "has_maxspeed": 416,
+      "has_surface": 13715,
+      "surface_paved": 12922,
+      "surface_unpaved": 793,
+      "surface_unknown": 129468,
+      "speed_lte_35": 414,
+      "speed_gt_35": 2,
+      "speed_unknown": 142767
+    },
+    "primary_link": {
+      "count": 1023,
+      "has_maxspeed": 32,
+      "has_surface": 460,
+      "surface_paved": 460,
+      "surface_unpaved": 0,
+      "surface_unknown": 563,
+      "speed_lte_35": 9,
+      "speed_gt_35": 23,
+      "speed_unknown": 991
+    },
+    "unclassified": {
+      "count": 5162,
+      "has_maxspeed": 361,
+      "has_surface": 1670,
+      "surface_paved": 1594,
+      "surface_unpaved": 76,
+      "surface_unknown": 3492,
+      "speed_lte_35": 282,
+      "speed_gt_35": 79,
+      "speed_unknown": 4801
+    },
+    "secondary": {
+      "count": 7781,
+      "has_maxspeed": 3542,
+      "has_surface": 6895,
+      "surface_paved": 6895,
+      "surface_unpaved": 0,
+      "surface_unknown": 886,
+      "speed_lte_35": 952,
+      "speed_gt_35": 2590,
+      "speed_unknown": 4239
+    },
+    "secondary_link": {
+      "count": 538,
+      "has_maxspeed": 25,
+      "has_surface": 222,
+      "surface_paved": 222,
+      "surface_unpaved": 0,
+      "surface_unknown": 316,
+      "speed_lte_35": 5,
+      "speed_gt_35": 20,
+      "speed_unknown": 513
+    },
+    "tertiary_link": {
+      "count": 573,
+      "has_maxspeed": 21,
+      "has_surface": 214,
+      "surface_paved": 214,
+      "surface_unpaved": 0,
+      "surface_unknown": 359,
+      "speed_lte_35": 21,
+      "speed_gt_35": 0,
+      "speed_unknown": 552
+    },
+    "living_street": {
+      "count": 95,
+      "has_maxspeed": 3,
+      "has_surface": 29,
+      "surface_paved": 29,
+      "surface_unpaved": 0,
+      "surface_unknown": 66,
+      "speed_lte_35": 3,
+      "speed_gt_35": 0,
+      "speed_unknown": 92
+    }
+  }
+}
