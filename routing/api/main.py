@@ -14,16 +14,22 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from .auth import router as auth_router
+from .db import close_db, init_db
 from .geocode import router as geocode_router
 from .health import router as health_router
 from .routes import load_speed_data, router as routes_router
+from .saved import router as saved_router
 
 
 @asynccontextmanager
 async def lifespan(app):
     # Load speed classification data once at startup
     load_speed_data()
+    # Initialize user database
+    await init_db()
     yield
+    await close_db()
 
 
 app = FastAPI(
@@ -50,6 +56,8 @@ app.add_middleware(
 app.include_router(routes_router, prefix="/api")
 app.include_router(geocode_router, prefix="/api")
 app.include_router(health_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(saved_router, prefix="/api")
 
 # Serve static data files (coverage boundary, etc.)
 DATA_DIR = os.environ.get("CARTPATH_DATA_DIR", "pipeline/data")

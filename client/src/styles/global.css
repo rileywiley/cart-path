@@ -676,6 +676,275 @@ body {
   height: 56px !important;
 }
 
+/* ── Top Bar (search + auth button) ─────────────────── */
+
+.app-top-bar {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.app-top-bar .search-bar {
+  flex: 1;
+}
+
+.btn-auth-toggle {
+  min-height: 48px;
+  padding: 12px 16px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.btn-auth-toggle:hover {
+  background: #f3f4f6;
+}
+
+/* ── Auth Modal ─────────────────────────────────────── */
+
+.auth-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.auth-modal {
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.auth-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.auth-modal-header h2 {
+  font-size: 1.25rem;
+}
+
+.auth-description {
+  font-size: 1rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.auth-modal input {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  font-size: 1.125rem;
+  color: var(--color-text);
+  outline: none;
+}
+
+.auth-modal input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(45, 122, 79, 0.2);
+}
+
+.auth-modal input[inputmode="numeric"] {
+  text-align: center;
+  letter-spacing: 0.5em;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.auth-error {
+  color: var(--color-error);
+  font-size: 0.875rem;
+  margin-top: 8px;
+}
+
+.auth-actions {
+  margin-top: 16px;
+}
+
+.auth-actions .btn-primary {
+  width: 100%;
+}
+
+.auth-guest-link {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 0.9375rem;
+}
+
+/* ── Account Menu ───────────────────────────────────── */
+
+.account-menu {
+  background: var(--color-bg);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.account-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.account-menu-header h2 {
+  font-size: 1.125rem;
+}
+
+.account-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.account-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.account-email {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.account-tier-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  background: var(--color-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+  width: fit-content;
+}
+
+.account-section {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.account-section h3 {
+  font-size: 0.9375rem;
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+}
+
+.account-saving {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.account-actions {
+  padding-top: 12px;
+}
+
+/* ── Vehicle Selector ───────────────────────────────── */
+
+.vehicle-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.vehicle-option {
+  flex: 1;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.vehicle-option:hover {
+  background: #f3f4f6;
+}
+
+.vehicle-option--active {
+  border-color: var(--color-primary);
+  background: #ecfdf5;
+}
+
+.vehicle-option-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.vehicle-option-desc {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+/* ── Import Banner ──────────────────────────────────── */
+
+.import-banner {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.import-banner p {
+  font-size: 0.9375rem;
+  color: #1e40af;
+  margin-bottom: 8px;
+}
+
+.import-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Save hints ─────────────────────────────────────── */
+
+.save-sync-hint,
+.saved-routes-sync-hint {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.save-error {
+  font-size: 0.875rem;
+  color: var(--color-error);
+  margin-top: 4px;
+}
+
 /* ── Attribution ─────────────────────────────────────── */
 
 .mapboxgl-ctrl-attrib {

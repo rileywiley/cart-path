@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { apiFetch } from '../utils/api';
 import { trackEvent } from '../utils/analytics';
 
 export default function RoutePanel({
@@ -10,9 +12,11 @@ export default function RoutePanel({
   userLocation,
   startCoords,
 }) {
+  const { isAuthenticated } = useAuth();
   const [showSegments, setShowSegments] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveForm, setShowSaveForm] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   if (!route) return null;
 
@@ -20,26 +24,59 @@ export default function RoutePanel({
     trackEvent('route_started', { route_id: route.route_id });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!saveLabel.trim()) return;
-    const saved = JSON.parse(localStorage.getItem('cartpath_saved_routes') || '[]');
-    saved.unshift({
-      label: saveLabel.trim(),
-      route_id: route.route_id,
-      summary: route.summary,
-      distance_miles: route.distance_miles,
-      duration_minutes: route.duration_minutes,
-      start: startCoords || userLocation || { lat: 0, lon: 0 },
-      end: route.route_geometry?.coordinates?.at(-1)
-        ? { lon: route.route_geometry.coordinates.at(-1)[0], lat: route.route_geometry.coordinates.at(-1)[1] }
-        : { lat: 0, lon: 0 },
-      saved_at: new Date().toISOString(),
-    });
-    // Keep max 10
-    localStorage.setItem('cartpath_saved_routes', JSON.stringify(saved.slice(0, 10)));
+    setSaveError('');
+
+    const start = startCoords || userLocation || { lat: 0, lon: 0 };
+    const end = route.route_geometry?.coordinates?.at(-1)
+      ? { lon: route.route_geometry.coordinates.at(-1)[0], lat: route.route_geometry.coordinates.at(-1)[1] }
+      : { lat: 0, lon: 0 };
+
+    if (isAuthenticated) {
+      // Save to server
+      try {
+        const resp = await apiFetch('/api/saved-routes', {
+          method: 'POST',
+          body: JSON.stringify({
+            label: saveLabel.trim(),
+            route_id: route.route_id,
+            summary: route.summary,
+            distance_miles: route.distance_miles,
+            duration_minutes: route.duration_minutes,
+            start,
+            end,
+          }),
+        });
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          setSaveError(data.detail || 'Failed to save route.');
+          return;
+        }
+      } catch {
+        setSaveError('Failed to save route. Please try again.');
+        return;
+      }
+    } else {
+      // Save to localStorage (guest mode)
+      const saved = JSON.parse(localStorage.getItem('cartpath_saved_routes') || '[]');
+      saved.unshift({
+        label: saveLabel.trim(),
+        route_id: route.route_id,
+        summary: route.summary,
+        distance_miles: route.distance_miles,
+        duration_minutes: route.duration_minutes,
+        start,
+        end,
+        saved_at: new Date().toISOString(),
+      });
+      localStorage.setItem('cartpath_saved_routes', JSON.stringify(saved.slice(0, 10)));
+    }
+
     trackEvent('route_saved');
     setShowSaveForm(false);
     setSaveLabel('');
+    setSaveError('');
   };
 
   const reportUrl = `mailto:feedback@cartpath.app?subject=Route%20Problem%20Report&body=Route%20ID:%20${route.route_id}%0ADescription:%20`;
@@ -67,7 +104,7 @@ export default function RoutePanel({
                 </span>
               )}
               {alt.compliance !== 'full' && (
-                <span className="route-alt-warning" aria-label="Includes roads above 35 MPH">
+                <span className="route-alt-warning" aria-label="Includes high-speed roads">
                   ⚠
                 </span>
               )}
@@ -122,6 +159,10 @@ export default function RoutePanel({
           />
           <button className="btn-primary" onClick={handleSave}>Save</button>
         </div>
+      )}
+      {saveError && <p className="save-error">{saveError}</p>}
+      {showSaveForm && !isAuthenticated && (
+        <p className="save-sync-hint">Sign in to sync across devices.</p>
       )}
 
       {showSegments && route.segments && (

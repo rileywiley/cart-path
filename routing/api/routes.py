@@ -15,16 +15,19 @@ import uuid
 from typing import Optional
 
 import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from .middleware import get_optional_user
 
 router = APIRouter()
 
 OSRM_URL = os.environ.get("OSRM_URL", "http://localhost:5000")
 SPEED_DATA_PATH = os.environ.get("CARTPATH_SPEED_DATA", "pipeline/data/classified_speeds.json")
 
-# Constants
-MAX_SPEED_MPH = 35
+# Constants — speed thresholds by vehicle type
+MAX_SPEED_GOLF_CART_MPH = 25
+MAX_SPEED_LSV_MPH = 35
 DEFAULT_CART_SPEED_MPH = 23
 METERS_PER_MILE = 1609.34
 
@@ -48,6 +51,7 @@ class Coordinates(BaseModel):
 class RouteRequest(BaseModel):
     start: Coordinates
     end: Coordinates
+    vehicle_type: str = Field(default="golf_cart", pattern="^(golf_cart|lsv)$")
 
 
 class Warning(BaseModel):
@@ -121,10 +125,11 @@ def is_residential_road(step: dict, speed_limit: float | None, road_type: str) -
     return False
 
 
-def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[RouteSegment], dict]:
+def analyze_route_compliance(route: dict, max_speed_mph: int = MAX_SPEED_GOLF_CART_MPH) -> tuple[str, list[Warning], list[RouteSegment], dict]:
     """
     Analyze route steps for speed limit compliance.
     Returns (compliance_level, warnings, segments, stats).
+    max_speed_mph: 25 for golf carts, 35 for LSVs.
     """
     warnings = []
     segments = []
@@ -155,8 +160,8 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
                     avg_speed_ms = sum(speeds) / len(speeds)
                     speed_limit = round(avg_speed_ms * 2.237, 0)  # m/s to mph
 
-            # Check against the 35 MPH threshold
-            if speed_limit is not None and speed_limit > MAX_SPEED_MPH:
+            # Check against the vehicle-type speed threshold
+            if speed_limit is not None and speed_limit > max_speed_mph:
                 compliant = False
 
             # Determine if this is a residential-type road
@@ -202,14 +207,14 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
     return compliance, warnings, segments, stats
 
 
-def build_route_response(route: dict, route_id: str, label: str) -> dict:
+def build_route_response(route: dict, route_id: str, label: str, max_speed_mph: int = MAX_SPEED_GOLF_CART_MPH) -> dict:
     """Build a standardized route response dict from an OSRM route."""
     geometry = route.get("geometry", {})
     distance_m = route.get("distance", 0)
     distance_miles = distance_m / METERS_PER_MILE
     duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60 if distance_miles > 0 else 0
 
-    compliance, warnings, segments, stats = analyze_route_compliance(route)
+    compliance, warnings, segments, stats = analyze_route_compliance(route, max_speed_mph)
 
     return {
         "route_id": route_id,
@@ -220,7 +225,7 @@ def build_route_response(route: dict, route_id: str, label: str) -> dict:
         "compliance": compliance,
         "warnings": [w.model_dump() for w in warnings],
         "segments": [s.model_dump() for s in segments],
-        "summary": build_summary(distance_miles, duration_minutes, compliance, warnings),
+        "summary": build_summary(distance_miles, duration_minutes, compliance, warnings, max_speed_mph),
         "residential_pct": stats["residential_pct"],
     }
 
@@ -244,7 +249,7 @@ def rank_residential_route(routes: list[dict]) -> Optional[dict]:
 
 
 @router.post("/route")
-async def compute_route(req: RouteRequest):
+async def compute_route(req: RouteRequest, request: Request):
     """
     Compute golf-cart-safe routes with multiple alternatives.
     Returns up to 3 route options:
@@ -252,6 +257,14 @@ async def compute_route(req: RouteRequest):
       2. Residential-preferred (most residential roads)
       3. Additional OSRM alternative (if available)
     """
+    # Determine speed threshold from vehicle type
+    # Use request body vehicle_type, or fall back to authenticated user's profile
+    vehicle_type = req.vehicle_type
+    user = await get_optional_user(request)
+    if vehicle_type == "golf_cart" and user and user.get("vehicle_type"):
+        vehicle_type = user["vehicle_type"]
+    max_speed = MAX_SPEED_LSV_MPH if vehicle_type == "lsv" else MAX_SPEED_GOLF_CART_MPH
+
     # Query OSRM with alternatives enabled
     data = await query_osrm(req.start, req.end, alternatives=True)
 
@@ -271,7 +284,7 @@ async def compute_route(req: RouteRequest):
             label = "Best route"
         else:
             label = f"Alternative {i}"
-        alt = build_route_response(osrm_route, route_id, label)
+        alt = build_route_response(osrm_route, route_id, label, max_speed)
         alternatives.append(alt)
 
     # Identify the most residential-friendly route among alternatives
@@ -310,16 +323,16 @@ async def compute_route(req: RouteRequest):
     }
 
 
-def build_summary(distance_miles: float, duration_minutes: float, compliance: str, warnings: list[Warning]) -> str:
+def build_summary(distance_miles: float, duration_minutes: float, compliance: str, warnings: list[Warning], max_speed_mph: int = MAX_SPEED_GOLF_CART_MPH) -> str:
     """Build a human-readable route summary."""
     base = f"~{int(duration_minutes)} min · {distance_miles:.1f} mi"
     if compliance == "full":
-        return f"{base} · All roads ≤35 MPH"
+        return f"{base} · All roads ≤{max_speed_mph} MPH"
     else:
         total_flagged = sum(w.distance_miles for w in warnings)
         max_speed = max((w.speed_limit for w in warnings), default=0)
         max_road = next((w.road_name for w in warnings if w.speed_limit == max_speed), "")
         return (
-            f"{base} · ⚠ Includes {total_flagged:.1f} mi on roads above 35 MPH"
+            f"{base} · Includes {total_flagged:.1f} mi on roads above {max_speed_mph} MPH"
             f" (max: {int(max_speed)} MPH on {max_road})"
         )

@@ -30,8 +30,16 @@ services:
       - CARTPATH_HEALTH_JSON=/app/pipeline/data/health.json
       - CARTPATH_SPEED_DATA=/app/pipeline/data/classified_speeds.json
       - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
+      - CARTPATH_JWT_SECRET=${CARTPATH_JWT_SECRET}
+      - CARTPATH_DB_PATH=/app/pipeline/data/cartpath.db
+      - CARTPATH_ENV=production
+      - CARTPATH_SMTP_HOST=${CARTPATH_SMTP_HOST:-}
+      - CARTPATH_SMTP_PORT=${CARTPATH_SMTP_PORT:-587}
+      - CARTPATH_SMTP_USER=${CARTPATH_SMTP_USER:-}
+      - CARTPATH_SMTP_PASSWORD=${CARTPATH_SMTP_PASSWORD:-}
+      - CARTPATH_FROM_EMAIL=${CARTPATH_FROM_EMAIL:-noreply@cartpath.app}
     volumes:
-      - ../pipeline/data:/app/pipeline/data:ro
+      - ../pipeline/data:/app/pipeline/data:rw
     depends_on:
       osrm:
         condition: service_healthy
