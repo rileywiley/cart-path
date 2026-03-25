@@ -11,6 +11,7 @@ export default function RoutePanel({
   onSave,
   userLocation,
   startCoords,
+  onStartRoute,
 }) {
   const { isAuthenticated } = useAuth();
   const [showSegments, setShowSegments] = useState(false);
@@ -22,6 +23,7 @@ export default function RoutePanel({
 
   const handleStartRoute = () => {
     trackEvent('route_started', { route_id: route.route_id });
+    onStartRoute?.();
   };
 
   const handleSave = async () => {
@@ -114,7 +116,11 @@ export default function RoutePanel({
       )}
 
       <div className="route-summary">
-        <span className="route-summary-text" aria-live="polite">
+        <span className="route-summary-text" aria-live="polite" aria-label={
+          route.compliance === 'full'
+            ? `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, all roads ${route.max_speed_mph || 35} MPH or less`
+            : `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, includes roads above speed limit`
+        }>
           {route.summary}
         </span>
         {route.residential_pct != null && (

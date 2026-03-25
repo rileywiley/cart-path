@@ -12,6 +12,19 @@
 const ANALYTICS_ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT || '';
 const PLAUSIBLE_DOMAIN = import.meta.env.VITE_PLAUSIBLE_DOMAIN || '';
 
+// Dynamically inject Plausible script if domain is configured
+if (PLAUSIBLE_DOMAIN && typeof document !== 'undefined') {
+  const s = document.createElement('script');
+  s.defer = true;
+  s.dataset.domain = PLAUSIBLE_DOMAIN;
+  s.dataset.api = 'https://plausible.io/api/event';
+  s.src = 'https://plausible.io/js/script.js';
+  document.head.appendChild(s);
+  window.plausible = window.plausible || function() {
+    (window.plausible.q = window.plausible.q || []).push(arguments);
+  };
+}
+
 let _userId = null;
 
 /** Link analytics to an authenticated user (call with null to unlink). */
@@ -65,24 +78,55 @@ export function trackEvent(eventName, payload = {}) {
 
 /**
  * Track page load performance via Web Vitals.
- * Uses PerformanceObserver for accurate LCP measurement.
+ * Measures LCP, FID, and CLS per PRD Analytics Event Taxonomy.
  */
 export function trackPageLoad() {
   if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
 
+  const vitals = {};
+
+  function reportVitals() {
+    if (vitals.lcp !== undefined) {
+      trackEvent('page_load_time', vitals);
+    }
+  }
+
   try {
+    // LCP (Largest Contentful Paint)
     new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      const lcpEntry = entries[entries.length - 1]; // last LCP entry is the final one
+      const lcpEntry = entries[entries.length - 1];
       if (lcpEntry) {
-        trackEvent('page_load_time', {
-          lcp: Math.round(lcpEntry.startTime),
-        });
+        vitals.lcp = Math.round(lcpEntry.startTime);
+        reportVitals();
       }
     }).observe({ type: 'largest-contentful-paint', buffered: true });
-  } catch {
-    // PerformanceObserver not supported — skip
-  }
+  } catch { /* not supported */ }
+
+  try {
+    // FID (First Input Delay)
+    new PerformanceObserver((entryList) => {
+      const entries = entryList.getEntries();
+      if (entries.length > 0) {
+        vitals.fid = Math.round(entries[0].processingStart - entries[0].startTime);
+        reportVitals();
+      }
+    }).observe({ type: 'first-input', buffered: true });
+  } catch { /* not supported */ }
+
+  try {
+    // CLS (Cumulative Layout Shift)
+    let clsValue = 0;
+    new PerformanceObserver((entryList) => {
+      for (const entry of entryList.getEntries()) {
+        if (!entry.hadRecentInput) {
+          clsValue += entry.value;
+        }
+      }
+      vitals.cls = Math.round(clsValue * 1000) / 1000;
+      reportVitals();
+    }).observe({ type: 'layout-shift', buffered: true });
+  } catch { /* not supported */ }
 }
 
 // Auto-track page load

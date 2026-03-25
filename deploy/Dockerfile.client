@@ -1,0 +1,23 @@
+# CartPath — Client Build (Multi-stage)
+# Builds the React SPA and outputs static files for nginx.
+
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY client/package.json client/package-lock.json* ./
+RUN npm ci --ignore-scripts
+
+# Copy source and build
+COPY client/ .
+ARG VITE_MAPBOX_TOKEN
+ARG VITE_PLAUSIBLE_DOMAIN
+ENV VITE_MAPBOX_TOKEN=$VITE_MAPBOX_TOKEN
+ENV VITE_PLAUSIBLE_DOMAIN=$VITE_PLAUSIBLE_DOMAIN
+RUN npm run build
+
+# Output stage — just the static files
+FROM alpine:3.19
+COPY --from=build /app/dist /dist
+# This container exits immediately — its only job is to populate the volume
+CMD ["echo", "Client build complete"]

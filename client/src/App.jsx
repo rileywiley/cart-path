@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Map from './components/Map';
 import SearchBar from './components/SearchBar';
 import RoutePanel from './components/RoutePanel';
@@ -8,6 +8,7 @@ import Onboarding from './components/Onboarding';
 import ErrorStates from './components/ErrorStates';
 import AuthModal from './components/AuthModal';
 import AccountMenu from './components/AccountMenu';
+import About from './components/About';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { trackEvent } from './utils/analytics';
 import { apiFetch } from './utils/api';
@@ -30,6 +31,9 @@ function AppContent() {
   const [lastStartCoords, setLastStartCoords] = useState(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const routeStartedRef = useRef(false);
+  const routeEndCoordsRef = useRef(null);
 
   useEffect(() => {
     trackEvent('app_opened');
@@ -47,6 +51,24 @@ function AppContent() {
     }
   }, []);
 
+  // Track route_completed when user is within 100m of destination
+  useEffect(() => {
+    if (!routeStartedRef.current || !userLocation || !routeEndCoordsRef.current) return;
+    const end = routeEndCoordsRef.current;
+    const R = 6371000;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dLat = toRad(end.lat - userLocation.lat);
+    const dLon = toRad(end.lon - userLocation.lon);
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(userLocation.lat)) * Math.cos(toRad(end.lat)) * Math.sin(dLon / 2) ** 2;
+    const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    if (dist < 100) {
+      trackEvent('route_completed', { route_id: route?.route_id });
+      routeStartedRef.current = false;
+      routeEndCoordsRef.current = null;
+    }
+  }, [userLocation, route]);
+
   const handleOnboardingComplete = useCallback((location) => {
     localStorage.setItem('cartpath_onboarding', 'done');
     setOnboardingComplete(true);
@@ -56,12 +78,22 @@ function AppContent() {
   }, []);
 
   const handleRouteRequest = useCallback(async (start, end) => {
+    // Track multi_stop_requested if user searches while a route is active
+    if (route) {
+      trackEvent('multi_stop_requested', {
+        current_route_id: route.route_id,
+        new_end_lat: end.lat,
+        new_end_lon: end.lon,
+      });
+    }
+
     setLoading(true);
     setError(null);
     setRoute(null);
     setAlternatives([]);
     setSelectedAltIndex(0);
     setLastStartCoords(start);
+    routeEndCoordsRef.current = end;
 
     // Check if destination is inside coverage area
     if (!isInsideCoverage(end.lat, end.lon)) {
@@ -128,11 +160,17 @@ function AppContent() {
   }, [user]);
 
   const handleClearRoute = useCallback(() => {
+    // If route was started and user dismisses, check for partial completion
+    if (routeStartedRef.current && route) {
+      trackEvent('route_completed', { route_id: route.route_id, reason: 'dismissed' });
+      routeStartedRef.current = false;
+      routeEndCoordsRef.current = null;
+    }
     setRoute(null);
     setAlternatives([]);
     setSelectedAltIndex(0);
     setError(null);
-  }, []);
+  }, [route]);
 
   const handleSelectAlternative = useCallback((index) => {
     if (alternatives[index]) {
@@ -202,6 +240,7 @@ function AppContent() {
               onSave={() => setShowSaved(true)}
               userLocation={userLocation}
               startCoords={lastStartCoords}
+              onStartRoute={() => { routeStartedRef.current = true; }}
             />
           </>
         )}
@@ -233,6 +272,18 @@ function AppContent() {
         {showAccountMenu && (
           <AccountMenu onClose={() => setShowAccountMenu(false)} />
         )}
+
+        {showAbout && (
+          <About onClose={() => setShowAbout(false)} />
+        )}
+
+        <button
+          className="btn-about-toggle"
+          onClick={() => setShowAbout(!showAbout)}
+          aria-label="About CartPath"
+        >
+          &#9432;
+        </button>
       </div>
     </div>
   );

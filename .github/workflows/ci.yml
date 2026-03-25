@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install pytest httpx fastapi pydantic
+
+      - name: Run pipeline tests
+        run: pytest pipeline/tests/ -v
+
+      - name: Run API tests
+        run: pytest routing/api/tests/ -v
+
+  client-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build client
+        working-directory: client
+        env:
+          VITE_MAPBOX_TOKEN: "test-token-for-ci"
+        run: npm run build
+
+      - name: Verify build output
+        run: test -f client/dist/index.html

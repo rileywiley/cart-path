@@ -87,6 +87,9 @@ export default function Onboarding({ onComplete }) {
             CartPath suggests routes based on available data. Routes are not guaranteed
             to be legal or safe for all vehicles. Always obey posted signs and local regulations.
           </p>
+          <p className="disclaimer-text disclaimer-night-weather">
+            Some areas restrict golf cart use after dark or during severe weather. Check local regulations.
+          </p>
           <button className="btn-primary btn-large" onClick={handleAcceptDisclaimer}>
             I understand
           </button>

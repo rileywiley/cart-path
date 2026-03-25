@@ -82,9 +82,10 @@ CENTER_LON = -81.3089
 RADIUS_MILES = 30
 
 # Routing
-MAX_SPEED_MPH = 35           # Cart-legal speed threshold
-DEFAULT_CART_SPEED_MPH = 23  # For ETA calculations
-SERVICE_ROAD_SPEED_MPH = 10  # Routing penalty for service roads
+MAX_SPEED_LSV_MPH = 35           # LSV cart-legal speed threshold (default)
+MAX_SPEED_GOLF_CART_MPH = 25     # Golf cart speed threshold (conservative)
+DEFAULT_CART_SPEED_MPH = 23      # For ETA calculations
+SERVICE_ROAD_SPEED_MPH = 10      # Routing penalty for service roads
 
 # Data audit results (240,878 total segments)
 # These are reference numbers — do not hardcode into app logic

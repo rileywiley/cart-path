@@ -231,6 +231,7 @@ def main():
     parser.add_argument("--speeds", default="pipeline/data/classified_speeds.json", help="Speed classification JSON")
     parser.add_argument("--surfaces", default="pipeline/data/classified_surfaces.json", help="Surface classification JSON")
     parser.add_argument("--crossings", default="pipeline/data/classified_crossings.json", help="Crossing classification JSON")
+    parser.add_argument("--excluded-roads", default="pipeline/data/excluded_roads.json", help="Manual road exclusion list")
     parser.add_argument("--output-dir", default="pipeline/data", help="Output directory")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
@@ -252,6 +253,21 @@ def main():
               f"{crossing_summary.get('unsignalized', 0)} unsignalized)")
     else:
         print("  Crossing data not found — skipping signal tagging")
+
+    # Load manual road exclusions (optional — hand-curated county ordinance exclusions)
+    excluded_count = 0
+    if os.path.exists(args.excluded_roads):
+        excluded_roads = load_json(args.excluded_roads, "Manual exclusions")
+        for entry in excluded_roads:
+            osm_id = str(entry.get("osm_id", ""))
+            if osm_id in speed_data:
+                speed_data[osm_id]["cart_legal"] = False
+                speed_data[osm_id]["excluded"] = True
+                speed_data[osm_id]["exclude_reason"] = entry.get("reason", "manual_exclusion")
+                excluded_count += 1
+        print(f"  Manual exclusions applied: {excluded_count}")
+    else:
+        print("  No manual exclusion file found — skipping")
 
     features = osm_data.get("features", [])
     print(f"  Loaded {len(features):,} OSM segments")
