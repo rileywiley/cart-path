@@ -51,7 +51,7 @@ class Coordinates(BaseModel):
 class RouteRequest(BaseModel):
     start: Coordinates
     end: Coordinates
-    vehicle_type: str = Field(default="golf_cart", pattern="^(golf_cart|lsv)$")
+    vehicle_type: str = Field(default="lsv", pattern="^(golf_cart|lsv)$")
 
 
 class Warning(BaseModel):

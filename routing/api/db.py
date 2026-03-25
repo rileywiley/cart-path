@@ -25,7 +25,7 @@ async def init_db():
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             display_name TEXT NOT NULL DEFAULT '',
-            vehicle_type TEXT NOT NULL DEFAULT 'golf_cart',
+            vehicle_type TEXT NOT NULL DEFAULT 'lsv',
             tier TEXT NOT NULL DEFAULT 'free',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))

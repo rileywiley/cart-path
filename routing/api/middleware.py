@@ -23,7 +23,7 @@ async def get_current_user(request: Request) -> dict:
         return {
             "user_id": payload["sub"],
             "email": payload["email"],
-            "vehicle_type": payload.get("vehicle_type", "golf_cart"),
+            "vehicle_type": payload.get("vehicle_type", "lsv"),
             "tier": payload.get("tier", "free"),
         }
     except JWTError:

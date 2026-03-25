@@ -84,7 +84,7 @@ function AppContent() {
     });
 
     // Include vehicle type in request if user is authenticated
-    const vehicleType = user?.vehicle_type || 'golf_cart';
+    const vehicleType = user?.vehicle_type || 'lsv';
 
     const retries = 2;
     for (let attempt = 0; attempt <= retries; attempt++) {

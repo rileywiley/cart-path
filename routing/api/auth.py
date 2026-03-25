@@ -297,8 +297,8 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 
 @router.patch("/me")
-async def update_me(req: UpdateProfileRequest, user: dict = Depends(get_current_user)):
-    """Update user profile fields."""
+async def update_me(req: UpdateProfileRequest, response: Response, user: dict = Depends(get_current_user)):
+    """Update user profile fields and refresh the access token."""
     db = await get_db()
 
     if req.vehicle_type and req.vehicle_type not in ("golf_cart", "lsv"):
@@ -325,10 +325,23 @@ async def update_me(req: UpdateProfileRequest, user: dict = Depends(get_current_
     )
     await db.commit()
 
-    # Return updated profile
+    # Fetch updated profile and issue a fresh access token
     cursor = await db.execute("SELECT * FROM users WHERE id = ?", (user["user_id"],))
     row = await cursor.fetchone()
     u = _user_row_to_dict(row)
+
+    # Refresh the JWT so subsequent requests use the updated vehicle_type
+    access_token = _create_access_token(u)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        secure=IS_PRODUCTION,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        path="/",
+    )
+
     return {
         "user_id": u["id"],
         "email": u["email"],

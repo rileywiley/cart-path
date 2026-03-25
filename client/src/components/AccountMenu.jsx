@@ -5,15 +5,17 @@ import VehicleSelector from './VehicleSelector';
 export default function AccountMenu({ onClose }) {
   const { user, logout, updateProfile } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
   if (!user) return null;
 
   const handleVehicleChange = async (vehicleType) => {
     setSaving(true);
+    setError('');
     try {
       await updateProfile({ vehicle_type: vehicleType });
-    } catch {
-      // silently fail — the UI will still show the old value
+    } catch (err) {
+      setError(err.message || 'Failed to update vehicle type.');
     } finally {
       setSaving(false);
     }
@@ -50,6 +52,7 @@ export default function AccountMenu({ onClose }) {
           onChange={handleVehicleChange}
         />
         {saving && <p className="account-saving">Saving...</p>}
+        {error && <p className="auth-error">{error}</p>}
       </div>
 
       <div className="account-actions">
