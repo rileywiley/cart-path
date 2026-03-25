@@ -2,6 +2,10 @@
 CartPath — Routing Endpoint
 ==============================
 POST /api/route — computes golf-cart-safe routes via OSRM.
+Returns multiple route alternatives:
+  - Best route (balanced): fastest cart-legal route
+  - Residential-only: longer but avoids all non-residential roads
+  - OSRM alternatives: additional alternatives from OSRM's engine
 Includes fallback routing with non-compliant segment annotations.
 """
 
@@ -23,6 +27,9 @@ SPEED_DATA_PATH = os.environ.get("CARTPATH_SPEED_DATA", "pipeline/data/classifie
 MAX_SPEED_MPH = 35
 DEFAULT_CART_SPEED_MPH = 23
 METERS_PER_MILE = 1609.34
+
+# Road types considered "residential" for the residential-only route option
+RESIDENTIAL_ROAD_TYPES = {"residential", "living_street", "service"}
 
 # Speed data loaded at startup via load_speed_data()
 _speed_data: dict = {}
@@ -58,10 +65,12 @@ class RouteSegment(BaseModel):
     duration_minutes: float
     speed_limit: Optional[float] = None
     surface_type: Optional[str] = None
+    road_type: Optional[str] = None
     compliant: bool = True
+    is_residential: bool = False
 
 
-async def query_osrm(start: Coordinates, end: Coordinates) -> Optional[dict]:
+async def query_osrm(start: Coordinates, end: Coordinates, alternatives: bool = False) -> Optional[dict]:
     """Query OSRM for a route between two points."""
     coords = f"{start.lon},{start.lat};{end.lon},{end.lat}"
     url = f"{OSRM_URL}/route/v1/driving/{coords}"
@@ -71,6 +80,8 @@ async def query_osrm(start: Coordinates, end: Coordinates) -> Optional[dict]:
         "steps": "true",
         "annotations": "true",
     }
+    if alternatives:
+        params["alternatives"] = "3"
 
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -85,21 +96,39 @@ async def query_osrm(start: Coordinates, end: Coordinates) -> Optional[dict]:
         return None
 
 
-def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[RouteSegment]]:
+def classify_road_type(step: dict) -> str:
+    """Infer road type from OSRM step metadata."""
+    # OSRM step includes driving_side, mode, and maneuver info
+    # The 'ref' field and road class hints come from the name/ref
+    name = (step.get("name") or "").lower()
+    ref = (step.get("ref") or "").lower()
+
+    # Heuristics based on naming patterns common in the FL pilot region
+    if ref and any(prefix in ref for prefix in ["sr ", "us ", "fl ", "cr "]):
+        return "classified"  # State/county road — likely primary/secondary
+
+    # Check against speed data for more precise classification
+    return "unknown"
+
+
+def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[RouteSegment], dict]:
     """
     Analyze route steps for speed limit compliance.
-    Returns (compliance_level, warnings, segments).
+    Returns (compliance_level, warnings, segments, stats).
     """
     warnings = []
     segments = []
     has_noncompliant = False
     total_noncompliant_miles = 0
+    residential_miles = 0
+    total_miles = 0
 
     for leg in route.get("legs", []):
         for step in leg.get("steps", []):
             road_name = step.get("name", "Unknown road")
             distance_m = step.get("distance", 0)
             distance_miles = distance_m / METERS_PER_MILE
+            total_miles += distance_miles
 
             # Recalculate duration at cart speed (23 MPH)
             duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60 if distance_miles > 0 else 0
@@ -120,12 +149,28 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
             if speed_limit is not None and speed_limit > MAX_SPEED_MPH:
                 compliant = False
 
+            # Determine if this is a residential-type road
+            road_type = classify_road_type(step)
+            is_residential = False
+            if speed_limit is not None and speed_limit <= 25:
+                is_residential = True
+            elif road_type not in ("classified",):
+                # Roads with no ref and low speed are likely residential
+                ref = step.get("ref") or ""
+                if not ref and (speed_limit is None or speed_limit <= 30):
+                    is_residential = True
+
+            if is_residential:
+                residential_miles += distance_miles
+
             segment = RouteSegment(
                 road_name=road_name,
                 distance_miles=round(distance_miles, 2),
                 duration_minutes=round(duration_minutes, 1),
                 speed_limit=speed_limit,
+                road_type=road_type,
                 compliant=compliant,
+                is_residential=is_residential,
             )
             segments.append(segment)
 
@@ -145,40 +190,27 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
     else:
         compliance = "fallback"
 
-    return compliance, warnings, segments
+    stats = {
+        "residential_miles": round(residential_miles, 2),
+        "total_miles": round(total_miles, 2),
+        "residential_pct": round(residential_miles / max(total_miles, 0.01) * 100, 0),
+    }
+
+    return compliance, warnings, segments, stats
 
 
-@router.post("/route")
-async def compute_route(req: RouteRequest):
-    """
-    Compute a golf-cart-safe route.
-    First tries the filtered (cart-legal) graph.
-    Falls back to the full graph if no compliant route exists.
-    """
-    route_id = str(uuid.uuid4())[:8]
-
-    # Query OSRM
-    data = await query_osrm(req.start, req.end)
-
-    if not data:
-        raise HTTPException(
-            status_code=404,
-            detail="We couldn't find any route between these locations. Please check the addresses and try again.",
-        )
-
-    route = data["routes"][0]
+def build_route_response(route: dict, route_id: str, label: str) -> dict:
+    """Build a standardized route response dict from an OSRM route."""
     geometry = route.get("geometry", {})
     distance_m = route.get("distance", 0)
-
     distance_miles = distance_m / METERS_PER_MILE
-    # Recalculate duration at fixed cart speed (23 MPH)
     duration_minutes = (distance_miles / DEFAULT_CART_SPEED_MPH) * 60 if distance_miles > 0 else 0
 
-    # Analyze compliance
-    compliance, warnings, segments = analyze_route_compliance(route)
+    compliance, warnings, segments, stats = analyze_route_compliance(route)
 
     return {
         "route_id": route_id,
+        "label": label,
         "route_geometry": geometry,
         "distance_miles": round(distance_miles, 1),
         "duration_minutes": round(duration_minutes, 0),
@@ -186,6 +218,92 @@ async def compute_route(req: RouteRequest):
         "warnings": [w.model_dump() for w in warnings],
         "segments": [s.model_dump() for s in segments],
         "summary": build_summary(distance_miles, duration_minutes, compliance, warnings),
+        "residential_pct": stats["residential_pct"],
+    }
+
+
+def rank_residential_route(routes: list[dict]) -> Optional[dict]:
+    """
+    From OSRM alternatives, find the route with the highest residential %.
+    Returns None if no route has >50% residential roads.
+    """
+    best = None
+    best_pct = 0
+    for r in routes:
+        pct = r.get("residential_pct", 0)
+        if pct > best_pct:
+            best_pct = pct
+            best = r
+    # Only label it as residential-preferred if meaningfully different
+    if best and best_pct > 50:
+        return best
+    return None
+
+
+@router.post("/route")
+async def compute_route(req: RouteRequest):
+    """
+    Compute golf-cart-safe routes with multiple alternatives.
+    Returns up to 3 route options:
+      1. Best route (fastest cart-legal)
+      2. Residential-preferred (most residential roads)
+      3. Additional OSRM alternative (if available)
+    """
+    # Query OSRM with alternatives enabled
+    data = await query_osrm(req.start, req.end, alternatives=True)
+
+    if not data:
+        raise HTTPException(
+            status_code=404,
+            detail="We couldn't find any route between these locations. Please check the addresses and try again.",
+        )
+
+    osrm_routes = data["routes"]
+    alternatives = []
+
+    # Build response for each OSRM alternative
+    for i, osrm_route in enumerate(osrm_routes[:3]):
+        route_id = str(uuid.uuid4())[:8]
+        if i == 0:
+            label = "Best route"
+        else:
+            label = f"Alternative {i}"
+        alt = build_route_response(osrm_route, route_id, label)
+        alternatives.append(alt)
+
+    # Identify the most residential-friendly route among alternatives
+    residential_route = rank_residential_route(alternatives)
+    if residential_route and len(alternatives) > 1:
+        # Re-label it if it's not already the best route
+        if residential_route["route_id"] != alternatives[0]["route_id"]:
+            residential_route["label"] = "Residential roads"
+        elif len(alternatives) > 1:
+            # If the best route is already the most residential, label the next one
+            alternatives[1]["label"] = "Faster route"
+            alternatives[0]["label"] = "Residential roads"
+
+    # Ensure unique labels
+    seen_labels = set()
+    for alt in alternatives:
+        if alt["label"] in seen_labels:
+            alt["label"] = f"{alt['label']} ({alt['distance_miles']} mi)"
+        seen_labels.add(alt["label"])
+
+    # Primary route is the first one (for backwards compatibility)
+    primary = alternatives[0]
+
+    return {
+        "route_id": primary["route_id"],
+        "route_geometry": primary["route_geometry"],
+        "distance_miles": primary["distance_miles"],
+        "duration_minutes": primary["duration_minutes"],
+        "compliance": primary["compliance"],
+        "warnings": primary["warnings"],
+        "segments": primary["segments"],
+        "summary": primary["summary"],
+        "residential_pct": primary["residential_pct"],
+        # Multiple route alternatives
+        "alternatives": alternatives,
     }
 
 

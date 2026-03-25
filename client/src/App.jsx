@@ -16,6 +16,8 @@ export default function App() {
   );
   const [userLocation, setUserLocation] = useState(null);
   const [route, setRoute] = useState(null);
+  const [alternatives, setAlternatives] = useState([]);
+  const [selectedAltIndex, setSelectedAltIndex] = useState(0);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
@@ -48,6 +50,8 @@ export default function App() {
     setLoading(true);
     setError(null);
     setRoute(null);
+    setAlternatives([]);
+    setSelectedAltIndex(0);
     setLastStartCoords(start);
 
     trackEvent('route_requested', {
@@ -79,10 +83,15 @@ export default function App() {
 
         const data = await resp.json();
         setRoute(data);
+        if (data.alternatives && data.alternatives.length > 0) {
+          setAlternatives(data.alternatives);
+          setSelectedAltIndex(0);
+        }
         setLoading(false);
         trackEvent('route_displayed', {
           compliance: data.compliance,
           segment_count: data.segments?.length,
+          alternatives_count: data.alternatives?.length || 1,
         });
         return;
       } catch (err) {
@@ -96,8 +105,21 @@ export default function App() {
 
   const handleClearRoute = useCallback(() => {
     setRoute(null);
+    setAlternatives([]);
+    setSelectedAltIndex(0);
     setError(null);
   }, []);
+
+  const handleSelectAlternative = useCallback((index) => {
+    if (alternatives[index]) {
+      setSelectedAltIndex(index);
+      setRoute(alternatives[index]);
+      trackEvent('route_alternative_selected', {
+        label: alternatives[index].label,
+        index,
+      });
+    }
+  }, [alternatives]);
 
   if (!onboardingComplete) {
     return <Onboarding onComplete={handleOnboardingComplete} />;
@@ -108,6 +130,8 @@ export default function App() {
       <Map
         center={userLocation || CENTER}
         route={route}
+        alternatives={alternatives}
+        selectedAltIndex={selectedAltIndex}
         userLocation={userLocation}
       />
 
@@ -128,6 +152,9 @@ export default function App() {
             )}
             <RoutePanel
               route={route}
+              alternatives={alternatives}
+              selectedAltIndex={selectedAltIndex}
+              onSelectAlternative={handleSelectAlternative}
               onSave={() => setShowSaved(true)}
               userLocation={userLocation}
               startCoords={lastStartCoords}

@@ -3,6 +3,8 @@
 -- Routes only on roads with speed limits ≤35 MPH.
 -- Penalizes unpaved surfaces and service roads.
 -- Excludes driveways and parking aisles entirely.
+-- Penalizes crossing >35 MPH roads at unsignalized intersections.
+-- Prefers lighted (signalized) crossings of major roads.
 
 api_version = 4
 
@@ -29,6 +31,10 @@ function setup()
     max_legal_speed_mph = 35,
     penalty_unpaved = 0.5,        -- 50% speed reduction for unpaved
 
+    -- Crossing penalties (seconds) — applied at intersections with >35 MPH roads
+    unsignalized_crossing_penalty = 45,  -- Heavy penalty: discourage unlit crossings
+    signalized_crossing_bonus = -5,      -- Small bonus: prefer lighted intersections
+
     -- Road types that carts can use
     cart_road_types = Set {
       'primary', 'primary_link',
@@ -48,9 +54,27 @@ end
 
 function process_node(profile, node, result, relations)
   -- Handle traffic signals
-  local traffic_signal = node:get_value_by_key('highway')
-  if traffic_signal == 'traffic_signals' then
+  local highway = node:get_value_by_key('highway')
+  if highway == 'traffic_signals' then
     result.traffic_lights = true
+  end
+
+  -- Handle CartPath crossing penalties for major-road intersections
+  local crossing_signal = node:get_value_by_key('cartpath:crossing_signal')
+  local crossing_speed = node:get_value_by_key('cartpath:crossing_speed')
+
+  if crossing_signal and crossing_speed then
+    local speed = tonumber(crossing_speed) or 0
+    if speed > profile.max_legal_speed_mph then
+      if crossing_signal == 'no' then
+        -- Unsignalized crossing of a >35 MPH road: heavy penalty
+        result.barrier = true
+        result.duration_penalty = profile.unsignalized_crossing_penalty
+      elseif crossing_signal == 'yes' then
+        -- Signalized crossing: small bonus (negative penalty = preference)
+        result.duration_penalty = profile.signalized_crossing_bonus
+      end
+    end
   end
 end
 
@@ -138,6 +162,8 @@ function process_turn(profile, turn)
   end
 
   if turn.has_traffic_light then
+    -- At signalized intersections, apply a small standard delay
+    -- but this is much preferred over unsignalized crossings
     turn.duration = turn.duration + profile.properties.traffic_signal_penalty
   end
 end

@@ -41,7 +41,7 @@ def load_json(path: str, label: str) -> dict:
         return json.load(f)
 
 
-def build_osm_xml(features: list, speed_data: dict, surface_data: dict) -> ET.Element:
+def build_osm_xml(features: list, speed_data: dict, surface_data: dict, crossing_data: dict | None = None) -> ET.Element:
     """
     Build an OSM XML document from classified features.
     Includes custom tags for cart_legal, surface_type, routing_speed.
@@ -92,9 +92,26 @@ def build_osm_xml(features: list, speed_data: dict, surface_data: dict) -> ET.El
             "surface_info": surface_info,
         })
 
-    # Write nodes
+    # Build crossing node index for signal tagging
+    node_signal_index = {}
+    if crossing_data:
+        node_signal_index = crossing_data.get("node_index", {})
+
+    # Write nodes (with traffic signal tags where applicable)
     for (lon, lat), nid in node_cache.items():
-        ET.SubElement(osm, "node", id=str(nid), lat=str(lat), lon=str(lon), version="1")
+        node_el = ET.SubElement(osm, "node", id=str(nid), lat=str(lat), lon=str(lon), version="1")
+
+        # Check if this node is at a signalized/unsignalized major-road crossing
+        coord_key = f"{lon},{lat}"
+        if coord_key in node_signal_index:
+            crossing_info = node_signal_index[coord_key]
+            if crossing_info.get("has_signal"):
+                ET.SubElement(node_el, "tag", k="highway", v="traffic_signals")
+                ET.SubElement(node_el, "tag", k="cartpath:crossing_signal", v="yes")
+            else:
+                ET.SubElement(node_el, "tag", k="cartpath:crossing_signal", v="no")
+            ET.SubElement(node_el, "tag", k="cartpath:crossing_speed",
+                          v=str(int(crossing_info.get("max_speed_limit", 0))))
 
     # Write ways with enriched tags
     for wd in ways_data:
@@ -212,6 +229,7 @@ def main():
     parser.add_argument("--osm-graph", default="pipeline/data/osm_roads.geojson", help="Input OSM GeoJSON")
     parser.add_argument("--speeds", default="pipeline/data/classified_speeds.json", help="Speed classification JSON")
     parser.add_argument("--surfaces", default="pipeline/data/classified_surfaces.json", help="Surface classification JSON")
+    parser.add_argument("--crossings", default="pipeline/data/classified_crossings.json", help="Crossing classification JSON")
     parser.add_argument("--output-dir", default="pipeline/data", help="Output directory")
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
@@ -223,6 +241,17 @@ def main():
     speed_data = load_json(args.speeds, "Speed classification")
     surface_data = load_json(args.surfaces, "Surface classification")
 
+    # Load crossing data (optional — may not exist on first run)
+    crossing_data = None
+    if os.path.exists(args.crossings):
+        crossing_data = load_json(args.crossings, "Crossing classification")
+        crossing_summary = crossing_data.get("summary", {})
+        print(f"  Crossings: {crossing_summary.get('total', 0):,} "
+              f"({crossing_summary.get('signalized', 0)} signalized, "
+              f"{crossing_summary.get('unsignalized', 0)} unsignalized)")
+    else:
+        print("  Crossing data not found — skipping signal tagging")
+
     features = osm_data.get("features", [])
     print(f"  Loaded {len(features):,} OSM segments")
     print(f"  Speed classifications: {len(speed_data):,}")
@@ -230,7 +259,7 @@ def main():
 
     # Build OSM XML
     print("\n  Building OSM XML...")
-    osm_xml = build_osm_xml(features, speed_data, surface_data)
+    osm_xml = build_osm_xml(features, speed_data, surface_data, crossing_data)
 
     os.makedirs(args.output_dir, exist_ok=True)
     osm_path = os.path.join(args.output_dir, "cartpath_roads.osm")

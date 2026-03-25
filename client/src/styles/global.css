@@ -265,6 +265,71 @@ body {
   margin-top: 8px;
 }
 
+/* Route alternative tabs */
+.route-alternatives {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.route-alt-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-height: 48px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 0.9375rem;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.route-alt-tab:hover {
+  background: #f3f4f6;
+}
+
+.route-alt-tab--active {
+  border-color: var(--color-primary);
+  background: #ecfdf5;
+}
+
+.route-alt-label {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.route-alt-info {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.route-alt-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #d1fae5;
+  color: #065f46;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.route-alt-warning {
+  font-size: 1rem;
+}
+
+.route-residential-pct {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
 .route-summary-text {
   font-size: 1.125rem; /* 18px — route info */
   font-weight: 600;
@@ -323,6 +388,15 @@ body {
 .segment-noncompliant {
   border-left: 3px solid var(--color-noncompliant);
   padding-left: 8px;
+}
+
+.segment-residential {
+  border-left: 3px solid var(--color-success);
+  padding-left: 8px;
+}
+
+.segment-noncompliant.segment-residential {
+  border-left: 3px solid var(--color-noncompliant);
 }
 
 .report-link {
