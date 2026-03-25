@@ -23,6 +23,17 @@ export default function App() {
 
   useEffect(() => {
     trackEvent('app_opened');
+
+    // Request geolocation on mount (covers return visits after onboarding)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        },
+        () => { /* permission denied or unavailable — leave userLocation null */ },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
   }, []);
 
   const handleOnboardingComplete = useCallback((location) => {
