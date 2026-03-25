@@ -1,7 +1,15 @@
 import React, { useState } from 'react';
 import { trackEvent } from '../utils/analytics';
 
-export default function RoutePanel({ route, onSave, userLocation, startCoords }) {
+export default function RoutePanel({
+  route,
+  alternatives = [],
+  selectedAltIndex = 0,
+  onSelectAlternative,
+  onSave,
+  userLocation,
+  startCoords,
+}) {
   const [showSegments, setShowSegments] = useState(false);
   const [saveLabel, setSaveLabel] = useState('');
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -38,10 +46,45 @@ export default function RoutePanel({ route, onSave, userLocation, startCoords })
 
   return (
     <div className="route-panel" role="region" aria-label="Route details">
+      {/* Route alternative tabs */}
+      {alternatives.length > 1 && (
+        <div className="route-alternatives" role="tablist" aria-label="Route options">
+          {alternatives.map((alt, i) => (
+            <button
+              key={alt.route_id}
+              role="tab"
+              aria-selected={i === selectedAltIndex}
+              className={`route-alt-tab ${i === selectedAltIndex ? 'route-alt-tab--active' : ''}`}
+              onClick={() => onSelectAlternative?.(i)}
+            >
+              <span className="route-alt-label">{alt.label}</span>
+              <span className="route-alt-info">
+                ~{Math.round(alt.duration_minutes)} min · {alt.distance_miles} mi
+              </span>
+              {alt.residential_pct >= 75 && (
+                <span className="route-alt-badge" aria-label="Mostly residential roads">
+                  Residential
+                </span>
+              )}
+              {alt.compliance !== 'full' && (
+                <span className="route-alt-warning" aria-label="Includes roads above 35 MPH">
+                  ⚠
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="route-summary">
         <span className="route-summary-text" aria-live="polite">
           {route.summary}
         </span>
+        {route.residential_pct != null && (
+          <span className="route-residential-pct">
+            {Math.round(route.residential_pct)}% residential roads
+          </span>
+        )}
       </div>
 
       <div className="route-actions">
@@ -84,11 +127,12 @@ export default function RoutePanel({ route, onSave, userLocation, startCoords })
       {showSegments && route.segments && (
         <ul className="segment-list" aria-label="Route segments">
           {route.segments.map((seg, i) => (
-            <li key={i} className={seg.compliant ? '' : 'segment-noncompliant'}>
+            <li key={i} className={`${seg.compliant ? '' : 'segment-noncompliant'} ${seg.is_residential ? 'segment-residential' : ''}`}>
               <span className="segment-name">{seg.road_name || 'Unnamed road'}</span>
               <span className="segment-info">
                 {seg.distance_miles} mi · ~{seg.duration_minutes} min
                 {seg.speed_limit && ` · ${seg.speed_limit} MPH`}
+                {seg.is_residential && ' · Residential'}
               </span>
             </li>
           ))}

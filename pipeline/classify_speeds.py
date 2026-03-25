@@ -40,7 +40,7 @@ FL_DEFAULT_SPEEDS = {
     "service":        15,
     "tertiary":       30,
     "tertiary_link":  25,
-    "unclassified":   35,  # conservative — these are ambiguous
+    # "unclassified" intentionally omitted — these are ambiguous and fall through to Tier 4 (unknown)
     "secondary":      45,
     "secondary_link": 35,
     "primary":        45,

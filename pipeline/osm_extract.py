@@ -55,6 +55,20 @@ out body geom;
 """.strip()
 
 
+def build_signals_query(center_lat: float, center_lon: float, radius_meters: int) -> str:
+    """Build an Overpass QL query to fetch traffic signal and crossing nodes."""
+    return f"""
+[out:json][timeout:{TIMEOUT}];
+(
+  node["highway"="traffic_signals"]
+    (around:{radius_meters},{center_lat},{center_lon});
+  node["highway"="crossing"]["crossing"~"^(traffic_signals|signals)$"]
+    (around:{radius_meters},{center_lat},{center_lon});
+);
+out body;
+""".strip()
+
+
 def query_overpass(query: str, verbose: bool = False) -> dict:
     """Execute the Overpass query with retry logic."""
     max_retries = 3
@@ -102,6 +116,25 @@ def parse_speed(raw: str) -> float | None:
             return float(raw)
     except ValueError:
         return None
+
+
+def extract_signal_nodes(elements: list) -> list[dict]:
+    """Extract traffic signal node locations from Overpass elements."""
+    signals = []
+    for el in elements:
+        if el.get("type") != "node":
+            continue
+        tags = el.get("tags", {})
+        highway = tags.get("highway", "")
+        if highway in ("traffic_signals", "crossing"):
+            signals.append({
+                "node_id": el["id"],
+                "lat": el["lat"],
+                "lon": el["lon"],
+                "type": highway,
+                "crossing": tags.get("crossing", ""),
+            })
+    return signals
 
 
 def elements_to_geojson(elements: list) -> dict:
@@ -214,6 +247,16 @@ def main():
     geojson = elements_to_geojson(elements)
     print_summary(geojson, verbose=args.verbose)
 
+    # Query traffic signal nodes
+    print("  Querying traffic signal nodes...")
+    signals_query = build_signals_query(args.center_lat, args.center_lon, radius_meters)
+    if args.verbose:
+        print(f"  Signals query:\n{signals_query}\n")
+    signals_data = query_overpass(signals_query, verbose=args.verbose)
+    signal_elements = signals_data.get("elements", [])
+    signals = extract_signal_nodes(signal_elements)
+    print(f"  Traffic signal/crossing nodes found: {len(signals):,}")
+
     # Write output
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w") as f:
@@ -221,6 +264,12 @@ def main():
 
     file_size = os.path.getsize(args.output)
     print(f"  Written to: {args.output} ({file_size / 1024 / 1024:.1f} MB)")
+
+    # Write traffic signals
+    signals_path = os.path.join(os.path.dirname(os.path.abspath(args.output)), "traffic_signals.json")
+    with open(signals_path, "w") as f:
+        json.dump(signals, f)
+    print(f"  Traffic signals written to: {signals_path} ({len(signals):,} nodes)")
 
 
 if __name__ == "__main__":

@@ -1,20 +1,20 @@
-version: "3.8"
-
 services:
   osrm:
     image: osrm/osrm-backend
+    platform: linux/amd64
     container_name: cartpath-osrm
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5050:5000"
     volumes:
       - ../routing/data:/data:ro
     command: osrm-routed --algorithm mld /data/cartpath_roads.osrm
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/nearest/v1/driving/0,0"]
-      interval: 30s
+      test: ["CMD-SHELL", "osrm-routed --help > /dev/null 2>&1 || exit 1"]
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 15s
 
   api:
     build:

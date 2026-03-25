@@ -76,6 +76,14 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     return null;
   }, [userLocation]);
 
+  const handleUseCurrentLocation = () => {
+    setStartText('Current Location');
+    setStartCoords(null);
+    setSuggestions([]);
+    setActiveField(null);
+    setValidationError(null);
+  };
+
   const handleStartChange = (e) => {
     const val = e.target.value;
     setStartText(val);
@@ -265,8 +273,14 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
         )}
       </div>
 
-      {suggestions.length > 0 && activeField && (
+      {activeField && (suggestions.length > 0 || (activeField === 'start' && startText !== 'Current Location' && userLocation)) && (
         <ul className="suggestions" role="listbox" aria-label="Address suggestions">
+          {activeField === 'start' && startText !== 'Current Location' && userLocation && (
+            <li role="option" className="suggestion-current-location" onClick={handleUseCurrentLocation}>
+              <span className="suggestion-name">Current Location</span>
+              <span className="suggestion-detail">Use your GPS location</span>
+            </li>
+          )}
           {suggestions.map((s, i) => (
             <li key={s.place_name || i} role="option" onClick={() => handleSelectSuggestion(s)}>
               <span className="suggestion-name">{s.name}</span>

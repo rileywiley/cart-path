@@ -11,6 +11,7 @@ GET /api/geocode?q={query}          — legacy one-shot (suggest + retrieve firs
 
 from __future__ import annotations
 
+import math
 import os
 import uuid
 from typing import Optional
@@ -27,6 +28,16 @@ SEARCH_RETRIEVE_URL = "https://api.mapbox.com/search/searchbox/v1/retrieve"
 # Pilot region center (Baldwin Park, FL)
 PROXIMITY_LON = -81.3089
 PROXIMITY_LAT = 28.5641
+RADIUS_MILES = 30
+
+
+def _bbox_from_center(lat: float, lon: float, radius_miles: float) -> str:
+    """Compute a bounding box string for Mapbox from a center point and radius."""
+    # 1 degree latitude ≈ 69 miles
+    delta_lat = radius_miles / 69.0
+    # 1 degree longitude ≈ 69 * cos(lat) miles
+    delta_lon = radius_miles / (69.0 * math.cos(math.radians(lat)))
+    return f"{lon - delta_lon},{lat - delta_lat},{lon + delta_lon},{lat + delta_lat}"
 
 
 def _require_token():
@@ -55,6 +66,7 @@ async def suggest(
         "access_token": MAPBOX_TOKEN,
         "session_token": session_token or str(uuid.uuid4()),
         "proximity": f"{prox_lon},{prox_lat}",
+        "bbox": _bbox_from_center(prox_lat, prox_lon, RADIUS_MILES),
         "country": "US",
         "types": "poi,address,street,place",
         "limit": 5,
