@@ -1,5 +1,11 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 
+// Stable session token per component mount (Mapbox billing groups suggest+retrieve)
+function useSessionToken() {
+  const ref = useRef(crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+  return ref.current;
+}
+
 export default function SearchBar({ userLocation, onRouteRequest, onClear, loading }) {
   const [startText, setStartText] = useState('Current Location');
   const [endText, setEndText] = useState('');
@@ -11,6 +17,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
   const [geocoding, setGeocoding] = useState(false);
   const debounceRef = useRef(null);
   const formRef = useRef(null);
+  const sessionToken = useSessionToken();
 
   // Close suggestions on outside click
   useEffect(() => {
@@ -33,7 +40,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        let url = `/api/geocode?q=${encodeURIComponent(query)}`;
+        let url = `/api/geocode/suggest?q=${encodeURIComponent(query)}&session_token=${sessionToken}`;
         if (userLocation) {
           url += `&proximity_lat=${userLocation.lat}&proximity_lon=${userLocation.lon}`;
         }
@@ -46,7 +53,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
         setSuggestions([]);
       }
     }, 300);
-  }, [userLocation]);
+  }, [userLocation, sessionToken]);
 
   // Geocode a text query and return the first result's coords, or null
   const geocodeText = useCallback(async (query) => {
@@ -90,18 +97,51 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     fetchSuggestions(e.target.value);
   };
 
-  const handleSelectSuggestion = (suggestion) => {
-    const coords = { lat: suggestion.lat, lon: suggestion.lon };
-    if (activeField === 'start') {
-      setStartText(suggestion.place_name || suggestion.name);
-      setStartCoords(coords);
+  const handleSelectSuggestion = async (suggestion) => {
+    const field = activeField; // capture before clearing
+    const displayName = suggestion.place_name || suggestion.name;
+    // Immediately show the selected name and close dropdown
+    if (field === 'start') {
+      setStartText(displayName);
     } else {
-      setEndText(suggestion.place_name || suggestion.name);
-      setEndCoords(coords);
+      setEndText(displayName);
     }
     setSuggestions([]);
     setActiveField(null);
     setValidationError(null);
+
+    // Retrieve full coordinates from Mapbox Search Box API
+    if (suggestion.mapbox_id) {
+      try {
+        const resp = await fetch(
+          `/api/geocode/retrieve?id=${encodeURIComponent(suggestion.mapbox_id)}&session_token=${sessionToken}`
+        );
+        if (resp.ok) {
+          const data = await resp.json();
+          const coords = { lat: data.lat, lon: data.lon };
+          if (field === 'start') {
+            setStartCoords(coords);
+            setStartText(data.place_name || displayName);
+          } else {
+            setEndCoords(coords);
+            setEndText(data.place_name || displayName);
+          }
+          return;
+        }
+      } catch {
+        // Fall through to legacy coords if available
+      }
+    }
+
+    // Fallback: use coords directly if present (legacy /geocode response)
+    if (suggestion.lat && suggestion.lon) {
+      const coords = { lat: suggestion.lat, lon: suggestion.lon };
+      if (field === 'start') {
+        setStartCoords(coords);
+      } else {
+        setEndCoords(coords);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
