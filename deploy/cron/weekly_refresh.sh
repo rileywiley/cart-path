@@ -22,23 +22,23 @@ cd "$PROJECT_ROOT"
 
 # Step 1: OSM extraction
 log "Step 1/5: Extracting OSM data..."
-python pipeline/osm_extract.py --verbose >> "$LOG_FILE" 2>&1
+python3 pipeline/osm_extract.py --verbose >> "$LOG_FILE" 2>&1
 
 # Step 2: FDOT speed ingestion
 log "Step 2/5: Ingesting FDOT speed data..."
-python pipeline/fdot_speed_ingest.py --verbose >> "$LOG_FILE" 2>&1
+python3 pipeline/fdot_speed_ingest.py --verbose >> "$LOG_FILE" 2>&1
 
 # Step 3: Speed classification
 log "Step 3/5: Classifying speeds..."
-python pipeline/classify_speeds.py --verbose >> "$LOG_FILE" 2>&1
+python3 pipeline/classify_speeds.py --verbose >> "$LOG_FILE" 2>&1
 
 # Step 4: Surface classification
 log "Step 4/5: Classifying surfaces..."
-python pipeline/classify_surfaces.py --verbose >> "$LOG_FILE" 2>&1
+python3 pipeline/classify_surfaces.py --verbose >> "$LOG_FILE" 2>&1
 
 # Step 5: Build OSRM graph
 log "Step 5/5: Building OSRM graph..."
-python pipeline/build_graph.py --verbose >> "$LOG_FILE" 2>&1
+python3 pipeline/build_graph.py --verbose >> "$LOG_FILE" 2>&1
 
 # Rebuild OSRM routing data
 log "Rebuilding OSRM routing data..."

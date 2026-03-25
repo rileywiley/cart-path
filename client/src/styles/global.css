@@ -237,7 +237,7 @@ body {
 
 .suggestion-category {
   display: inline-block;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   color: var(--color-text-secondary);
   background: #e5e7eb;
   border-radius: 4px;
@@ -253,6 +253,15 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.suggestion-current-location {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.suggestion-current-location .suggestion-name::before {
+  content: '\1F4CD';
+  margin-right: 6px;
 }
 
 /* ── Route Panel ─────────────────────────────────────── */
@@ -311,7 +320,7 @@ body {
 }
 
 .route-alt-badge {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 600;
   background: #d1fae5;
   color: #065f46;
@@ -670,5 +679,5 @@ body {
 /* ── Attribution ─────────────────────────────────────── */
 
 .mapboxgl-ctrl-attrib {
-  font-size: 0.75rem;
+  font-size: 0.875rem;
 }

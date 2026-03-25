@@ -7,6 +7,7 @@ import SavedRoutes from './components/SavedRoutes';
 import Onboarding from './components/Onboarding';
 import ErrorStates from './components/ErrorStates';
 import { trackEvent } from './utils/analytics';
+import { loadCoverageBoundary, isInsideCoverage, nearestBoundaryPoint } from './utils/boundary';
 
 const CENTER = { lat: 28.5641, lon: -81.3089 };
 
@@ -25,6 +26,7 @@ export default function App() {
 
   useEffect(() => {
     trackEvent('app_opened');
+    loadCoverageBoundary();
 
     // Request geolocation on mount (covers return visits after onboarding)
     if (navigator.geolocation) {
@@ -53,6 +55,19 @@ export default function App() {
     setAlternatives([]);
     setSelectedAltIndex(0);
     setLastStartCoords(start);
+
+    // Check if destination is inside coverage area
+    if (!isInsideCoverage(end.lat, end.lon)) {
+      trackEvent('destination_outside_area', { lat: end.lat, lon: end.lon });
+      const nearest = nearestBoundaryPoint(end.lat, end.lon);
+      setError({
+        type: 'outside_coverage',
+        message: "This destination is outside CartPath's verified coverage area.",
+        nearestPoint: nearest,
+      });
+      setLoading(false);
+      return;
+    }
 
     trackEvent('route_requested', {
       start_lat: start.lat,
@@ -143,7 +158,16 @@ export default function App() {
           loading={loading}
         />
 
-        {error && <ErrorStates error={error} onDismiss={() => setError(null)} />}
+        {error && (
+          <ErrorStates
+            error={error}
+            onDismiss={() => setError(null)}
+            onRouteToBoundary={(point) => {
+              setError(null);
+              handleRouteRequest(lastStartCoords || userLocation || CENTER, point);
+            }}
+          />
+        )}
 
         {route && (
           <>

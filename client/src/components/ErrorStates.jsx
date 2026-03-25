@@ -30,7 +30,7 @@ const ERROR_MESSAGES = {
   },
 };
 
-export default function ErrorStates({ error, onDismiss }) {
+export default function ErrorStates({ error, onDismiss, onRouteToBoundary }) {
   if (!error) return null;
 
   const config = ERROR_MESSAGES[error.type] || ERROR_MESSAGES.api_down;
@@ -57,6 +57,11 @@ export default function ErrorStates({ error, onDismiss }) {
         </div>
       </div>
       <div className="error-actions">
+        {error.type === 'outside_coverage' && error.nearestPoint && onRouteToBoundary && (
+          <button className="btn-secondary" onClick={() => onRouteToBoundary(error.nearestPoint)}>
+            Route to nearest boundary
+          </button>
+        )}
         {config.action && (
           <button className="btn-secondary" onClick={handleAction}>
             {config.action}
