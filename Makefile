@@ -1,4 +1,4 @@
-.PHONY: up down dev logs restart status rebuild init prod ssl test
+.PHONY: up down dev logs restart status rebuild init prod ssl test lan-ip
 
 # ── Development ──────────────────────────────────────────────────────
 
@@ -52,12 +52,21 @@ prod:
 	@echo ""
 	@echo "CartPath is running. Check status with: make status"
 
+# Show LAN IP for accessing from other devices
+lan-ip:
+	@echo "Your LAN IP:"
+	@ipconfig getifaddr en0 2>/dev/null || ip route get 1 2>/dev/null | awk '{print $$7; exit}' || hostname -I 2>/dev/null | awk '{print $$1}'
+	@echo ""
+	@echo "Access CartPath from other devices at: http://$$(ipconfig getifaddr en0 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}')"
+
 # SSL setup instructions
 ssl:
 	@echo "=== SSL Setup with Let's Encrypt ==="
 	@echo ""
 	@echo "1. Make sure your domain points to this server's IP"
-	@echo "2. Install certbot: sudo apt install certbot"
+	@echo "2. Install certbot:"
+	@echo "   - macOS:  brew install certbot"
+	@echo "   - Linux:  sudo apt install certbot"
 	@echo "3. Run certbot:"
 	@echo "   sudo certbot certonly --webroot -w /var/www/certbot -d YOUR_DOMAIN"
 	@echo "4. Edit deploy/nginx.conf:"
@@ -65,5 +74,3 @@ ssl:
 	@echo "   - Replace 'cartpath.app' with your domain"
 	@echo "   - Add 'return 301 https://\$$host\$$request_uri;' to the HTTP block"
 	@echo "5. Restart: make restart"
-	@echo "6. Set up auto-renewal: sudo crontab -e"
-	@echo "   0 0 1 * * certbot renew --quiet && docker compose -f deploy/docker-compose.yml restart nginx"

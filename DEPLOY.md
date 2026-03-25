@@ -1,96 +1,95 @@
-# CartPath — Deployment Guide
+# CartPath — Self-Hosting on a Mac
 
-Deploy CartPath on a single VPS with Docker.
+Host CartPath on a spare Mac on your local network. Everything runs in Docker.
 
 ## Prerequisites
 
-- A **domain name** (e.g., `cartpath.app`) — you'll need DNS access
-- A **VPS** with 2-4 GB RAM, 2 vCPUs, 50 GB SSD
-- A **Mapbox access token** — free at [mapbox.com](https://account.mapbox.com/access-tokens/)
+- A Mac (Intel or Apple Silicon) with **4 GB+ free RAM**
+- macOS 13 (Ventura) or newer
+- The Mac stays on and connected to your network
 
-## 1. Provision a VPS
+## 1. Install Docker Desktop
 
-**DigitalOcean** (recommended for simplicity):
-1. Create a Droplet: Ubuntu 24.04, $12/mo (2 GB RAM / 1 vCPU) or $24/mo (4 GB / 2 vCPU)
-2. Add your SSH key during creation
-3. Note the droplet's IP address
+Download and install Docker Desktop for Mac:
 
-**Hetzner** (better value):
-1. Create a Cloud Server: Ubuntu 24.04, CX22 (~€4/mo for 2 vCPU / 4 GB RAM)
-2. Add your SSH key
-3. Note the server's IP address
-
-## 2. DNS Setup
-
-Add an **A record** pointing your domain to the VPS IP:
-
-| Type | Name | Value | TTL |
-|------|------|-------|-----|
-| A | @ | YOUR_SERVER_IP | 300 |
-| A | www | YOUR_SERVER_IP | 300 |
-
-Wait for DNS to propagate (5-30 minutes). Verify with:
 ```bash
-dig +short yourdomain.com
+# Option A: Download from https://www.docker.com/products/docker-desktop/
+
+# Option B: Install via Homebrew
+brew install --cask docker
 ```
 
-## 3. Server Setup
-
-SSH into your server and install Docker:
+Open Docker Desktop and let it finish starting up. Verify:
 
 ```bash
-ssh root@YOUR_SERVER_IP
+docker --version
+docker compose version
+```
 
-# Install Docker
-curl -fsSL https://get.docker.com | sh
+## 2. Install Python and Dependencies
 
-# Install Python 3 + pip (for data pipeline)
-apt update && apt install -y python3-pip python3-venv git
+```bash
+# Install Homebrew if you don't have it
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# Clone the repo
+# Install Python 3 and GDAL (needed for data pipeline)
+brew install python@3.11 gdal
+
+# Verify
+python3 --version
+```
+
+## 3. Clone the Repo
+
+```bash
+cd ~
 git clone https://github.com/rileywiley/cart-path.git
 cd cart-path
 
 # Install Python dependencies
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ## 4. Configure Environment
 
 ```bash
 cp deploy/.env.example deploy/.env
-nano deploy/.env
 ```
 
-Fill in at minimum:
-- `MAPBOX_ACCESS_TOKEN` — your Mapbox token
-- `CARTPATH_JWT_SECRET` — generate with `openssl rand -hex 32`
-- `CARTPATH_ENV=production`
-- `CARTPATH_CORS_ORIGINS=https://yourdomain.com`
+Edit `deploy/.env` with your editor:
 
-Optional but recommended:
-- `VITE_PLAUSIBLE_DOMAIN=yourdomain.com` (if using Plausible analytics)
-- SMTP settings (for email verification)
+```bash
+nano deploy/.env   # or: open -e deploy/.env
+```
 
-## 5. Bootstrap Data
+Set at minimum:
 
-Run the data pipeline to generate road data and the OSRM routing graph. This takes **5-10 minutes** on first run (the Overpass API is the bottleneck):
+```env
+MAPBOX_ACCESS_TOKEN=pk.your_mapbox_token_here
+CARTPATH_JWT_SECRET=run-openssl-rand-hex-32-to-generate
+```
+
+Generate the JWT secret:
+
+```bash
+openssl rand -hex 32
+```
+
+Get a free Mapbox token at [mapbox.com](https://account.mapbox.com/access-tokens/).
+
+## 5. Bootstrap the Data Pipeline
+
+This downloads road data, classifies speeds/surfaces, and builds the routing graph. Takes **5-10 minutes** on first run:
 
 ```bash
 make init
 ```
 
-This runs `deploy/init.sh` which:
-1. Extracts ~240K road segments from OpenStreetMap
-2. Downloads FDOT speed limit data
-3. Classifies roads by speed and surface
-4. Builds the OSRM routing graph
-5. Generates the coverage boundary
-
 Verify the output:
+
 ```bash
-ls -la pipeline/data/health.json     # Should exist
-ls -la routing/data/cartpath_roads.osrm  # Should exist
+ls -la pipeline/data/health.json          # Pipeline health
+ls -la routing/data/cartpath_roads.osrm   # OSRM routing graph
 ```
 
 ## 6. Build and Start
@@ -99,125 +98,256 @@ ls -la routing/data/cartpath_roads.osrm  # Should exist
 make prod
 ```
 
-This builds all Docker images (API, client, OSRM) and starts them. The client build takes ~1-2 minutes on first run.
+This builds 4 Docker containers:
+- **client** — builds the React app (runs once, then exits)
+- **osrm** — routing engine
+- **api** — FastAPI backend
+- **nginx** — serves the web app + reverse proxy
 
-Verify everything is running:
+Check status:
+
 ```bash
 make status
-# Should show: osrm (healthy), api (running), nginx (running)
-
-curl http://localhost/api/health
-# Should return {"status": "ok", ...}
 ```
 
-Your app is now running on **http://YOUR_SERVER_IP**.
+Open in your browser: **http://localhost**
 
-## 7. SSL Setup (HTTPS)
+## 7. Access from Other Devices on Your Network
 
-SSL is required for the PWA and browser geolocation to work properly.
+Find your Mac's local IP:
 
 ```bash
-# Install certbot
-apt install -y certbot
-
-# Create webroot directory (used by nginx for ACME challenges)
-mkdir -p /var/www/certbot
-
-# Get your certificate (replace with your domain)
-certbot certonly --webroot -w /var/www/certbot -d yourdomain.com -d www.yourdomain.com
+make lan-ip
+# Example output: Your LAN IP: 192.168.1.42
 ```
 
-After certbot succeeds, edit `deploy/nginx.conf`:
+On any device connected to the same Wi-Fi/network, open:
 
-1. **Uncomment** the entire HTTPS server block at the bottom
-2. **Replace** `cartpath.app` with your domain (3 places: `server_name`, `ssl_certificate`, `ssl_certificate_key`)
-3. **Add** this line inside the HTTP server block (after `listen 80;`):
-   ```
-   return 301 https://$host$request_uri;
-   ```
-4. Restart nginx:
+```
+http://192.168.1.42
+```
+
+To make this easier, you can assign a static IP to the Mac:
+1. System Settings → Network → Wi-Fi → Details → TCP/IP
+2. Configure IPv4: Manually
+3. Set IP address (e.g., `192.168.1.100`)
+4. Save
+
+## 8. Keep It Running
+
+### Prevent Sleep
+
+The Mac needs to stay awake to serve requests:
+
+1. System Settings → Energy Saver (or Battery → Options)
+2. Enable **"Prevent automatic sleeping when the display is off"**
+3. Optionally: **"Wake for network access"**
+
+Or from the terminal:
+
+```bash
+# Prevent sleep permanently (until you cancel with Ctrl+C)
+caffeinate -s &
+```
+
+### Auto-Start on Boot
+
+Create a launch agent so CartPath starts when the Mac boots:
+
+```bash
+mkdir -p ~/Library/LaunchAgents
+
+cat > ~/Library/LaunchAgents/com.cartpath.server.plist << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cartpath.server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/docker</string>
+        <string>compose</string>
+        <string>-f</string>
+        <string>deploy/docker-compose.yml</string>
+        <string>up</string>
+        <string>-d</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/cart-path</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/cartpath/startup.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/cartpath/startup-error.log</string>
+</dict>
+</plist>
+PLIST
+```
+
+**Important:** Replace `YOUR_USERNAME` with your Mac username (run `whoami` to check), then:
+
+```bash
+mkdir -p ~/Library/Logs/cartpath
+launchctl load ~/Library/LaunchAgents/com.cartpath.server.plist
+```
+
+### Weekly Data Refresh
+
+Set up a weekly refresh so road data stays current:
+
+```bash
+cat > ~/Library/LaunchAgents/com.cartpath.refresh.plist << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cartpath.refresh</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>deploy/cron/weekly_refresh.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/YOUR_USERNAME/cart-path</string>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>0</integer>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/cartpath/refresh.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/cartpath/refresh-error.log</string>
+</dict>
+</plist>
+PLIST
+```
+
+Replace `YOUR_USERNAME` and load:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.cartpath.refresh.plist
+```
+
+## 9. Optional: Access from Outside Your Network
+
+### Option A: Cloudflare Tunnel (Recommended — Free, No Port Forwarding)
+
+Cloudflare Tunnel gives you a public HTTPS URL without opening ports on your router:
+
+```bash
+brew install cloudflare/cloudflare/cloudflared
+
+# Login to Cloudflare (you need a free account + a domain on Cloudflare DNS)
+cloudflared tunnel login
+
+# Create a tunnel
+cloudflared tunnel create cartpath
+
+# Route your domain to the tunnel
+cloudflared tunnel route dns cartpath cartpath.yourdomain.com
+
+# Run the tunnel (points your domain to localhost:80)
+cloudflared tunnel --url http://localhost:80 run cartpath
+```
+
+To run the tunnel permanently, create a launchd plist similar to the ones above.
+
+### Option B: Port Forwarding + Dynamic DNS
+
+1. Forward ports **80** and **443** on your router to your Mac's IP
+2. Set up a free dynamic DNS service (e.g., DuckDNS):
    ```bash
-   make restart
+   # See https://www.duckdns.org/install.jsp for Mac instructions
    ```
+3. Run certbot for SSL:
+   ```bash
+   brew install certbot
+   sudo certbot certonly --webroot -w /tmp/certbot -d yourname.duckdns.org
+   ```
+4. Enable the HTTPS block in `deploy/nginx.conf` (see comments in that file)
 
-Set up **auto-renewal**:
-```bash
-crontab -e
-# Add this line:
-0 0 1 * * certbot renew --quiet && docker compose -f /root/cart-path/deploy/docker-compose.yml restart nginx
-```
-
-## 8. Weekly Data Refresh
-
-Set up a cron job to refresh road data weekly:
+## 10. Monitoring
 
 ```bash
-crontab -e
-# Add this line (runs every Sunday at 3 AM):
-0 3 * * 0 cd /root/cart-path && bash deploy/cron/weekly_refresh.sh
-```
-
-This re-downloads OSM data, re-classifies roads, rebuilds the OSRM graph, and restarts the routing engine.
-
-## 9. Monitoring
-
-**Check service health:**
-```bash
+# Service status
 make status
-make logs          # Follow all logs
-docker logs cartpath-api -f --tail 100   # API logs only
-```
 
-**Check data freshness:**
-```bash
+# Follow logs
+make logs
+
+# Just API logs
+docker logs cartpath-api -f --tail 50
+
+# Check data freshness
 curl -s http://localhost/api/health | python3 -m json.tool
-```
 
-If `data_freshness` is `stale`, the weekly cron job may have failed. Check logs:
-```bash
-ls /var/log/cartpath/
-cat /var/log/cartpath/weekly_refresh_$(date +%Y%m%d).log
-```
-
-**Restart a single service:**
-```bash
-docker compose -f deploy/docker-compose.yml restart api    # Just the API
-docker compose -f deploy/docker-compose.yml restart osrm   # Just OSRM
-docker compose -f deploy/docker-compose.yml restart nginx   # Just nginx
-```
-
-**Full restart:**
-```bash
+# Restart everything
 make restart
-```
 
-**Rebuild everything from scratch:**
-```bash
+# Rebuild from scratch
 make down
 make init --force
 make prod
 ```
 
-## Architecture Overview
+Check refresh logs:
 
-```
-Internet → Nginx (:80/:443)
-              ├── /          → Static React SPA (built by Dockerfile.client)
-              ├── /api/*     → FastAPI (:8000) → OSRM (:5000)
-              └── /data/*    → FastAPI (serves coverage boundary, health.json)
-
-Data:  pipeline/data/ (classified roads, health.json, SQLite DB)
-       routing/data/  (OSRM graph files)
+```bash
+cat ~/Library/Logs/cartpath/refresh.log
 ```
 
-## Cost Summary
+## Troubleshooting
+
+**Docker not starting?**
+- Open Docker Desktop app and wait for it to initialize
+- Check: `docker info` — should show "Server Version"
+
+**OSRM container unhealthy?**
+- Data pipeline may not have run: `make init`
+- Check: `ls routing/data/cartpath_roads.osrm`
+
+**Slow on Apple Silicon?**
+- Make sure `platform: linux/amd64` is NOT in `docker-compose.yml`
+- Docker Desktop uses native ARM containers which are much faster
+
+**Can't access from other devices?**
+- Check Mac's firewall: System Settings → Network → Firewall → allow incoming
+- Verify IP: `make lan-ip`
+- Make sure other device is on the same network
+
+**Pipeline fails with GDAL error?**
+- Install GDAL via Homebrew: `brew install gdal`
+- Then: `pip3 install --prefer-binary geopandas fiona`
+
+## Architecture
+
+```
+Your Mac (Docker Desktop)
+├── nginx (:80)        → Serves React app + proxies API
+├── api (:8000)        → FastAPI backend
+├── osrm (:5000)       → OSRM routing engine
+└── client (build)     → Builds React app (runs once)
+
+Storage:
+├── pipeline/data/     → Road classifications, health.json, SQLite DB
+└── routing/data/      → OSRM graph files
+```
+
+## Cost
 
 | Component | Cost |
 |-----------|------|
-| VPS (2-4 GB) | $12-24/mo |
-| Domain | ~$1/mo |
+| Mac (you already have it) | $0 |
+| Electricity | ~$5-10/mo |
 | Mapbox (free tier: 50K loads/mo) | $0 |
-| SSL (Let's Encrypt) | $0 |
-| Data sources (OSM, FDOT) | $0 |
-| Plausible analytics (optional) | $0-9/mo |
-| **Total** | **$13-34/mo** |
+| Domain (optional) | $0-1/mo |
+| Cloudflare Tunnel (optional) | $0 |
+| **Total** | **$0-11/mo** |

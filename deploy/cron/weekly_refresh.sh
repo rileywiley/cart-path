@@ -8,9 +8,16 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-LOG_FILE="/var/log/cartpath/weekly_refresh_$(date +%Y%m%d).log"
 
-mkdir -p "$(dirname "$LOG_FILE")"
+# Use platform-appropriate log directory
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    LOG_DIR="$HOME/Library/Logs/cartpath"
+else
+    LOG_DIR="/var/log/cartpath"
+fi
+LOG_FILE="$LOG_DIR/weekly_refresh_$(date +%Y%m%d).log"
+
+mkdir -p "$LOG_DIR"
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"

@@ -45,7 +45,7 @@ fi
 echo "Checking Python dependencies..."
 python3 -c "import requests, json" 2>/dev/null || {
     echo "Installing Python dependencies..."
-    pip install -r requirements.txt
+    pip3 install -r requirements.txt
 }
 
 # Create output directories

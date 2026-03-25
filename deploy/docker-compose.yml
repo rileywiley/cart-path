@@ -13,7 +13,6 @@ services:
 
   osrm:
     image: osrm/osrm-backend
-    platform: linux/amd64
     container_name: cartpath-osrm
     restart: unless-stopped
     ports:
