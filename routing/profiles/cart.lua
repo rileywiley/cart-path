@@ -67,13 +67,12 @@ function process_node(profile, node, result, relations)
     local speed = tonumber(crossing_speed) or 0
     if speed > profile.max_legal_speed_mph then
       if crossing_signal == 'no' then
-        -- Unsignalized crossing of a >35 MPH road: heavy penalty
+        -- Unsignalized crossing of a >35 MPH road: block entirely
+        -- OSRM will route around via signalized crossings instead
         result.barrier = true
-        result.penalty = profile.unsignalized_crossing_penalty
-      elseif crossing_signal == 'yes' then
-        -- Signalized crossing: small bonus via reduced penalty
-        result.penalty = 0
       end
+      -- Signalized crossings: no special handling needed (traffic_lights
+      -- penalty from process_turn already applies a small standard delay)
     end
   end
 end
