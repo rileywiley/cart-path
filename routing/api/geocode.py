@@ -41,22 +41,48 @@ async def geocode(
     else:
         proximity = PROXIMITY
 
-    params = {
+    base_params = {
         "access_token": MAPBOX_TOKEN,
         "autocomplete": "true",
         "bbox": BBOX,
         "proximity": proximity,
         "fuzzyMatch": "true",
-        "limit": 5,
         "country": "US",
-        "types": "poi,address,place,neighborhood,locality",
     }
+
+    # Detect whether the query looks like an address (starts with a digit)
+    # vs a business name. Business queries get POI-first search.
+    query_is_address = q.strip()[:1].isdigit()
 
     try:
         async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=params)
-            resp.raise_for_status()
-            data = resp.json()
+            if query_is_address:
+                # Address-like query: search addresses and POIs together
+                params = {**base_params, "types": "address,poi,place", "limit": 5}
+                resp = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=params)
+                resp.raise_for_status()
+                all_features = resp.json().get("features", [])
+            else:
+                # Business-name query: search POIs first, backfill with addresses
+                poi_params = {**base_params, "types": "poi", "limit": 5}
+                resp = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=poi_params)
+                resp.raise_for_status()
+                poi_features = resp.json().get("features", [])
+
+                # Backfill with addresses if fewer than 5 POI results
+                addr_features = []
+                if len(poi_features) < 5:
+                    addr_params = {
+                        **base_params,
+                        "types": "address,place,neighborhood,locality",
+                        "limit": 5 - len(poi_features),
+                    }
+                    resp2 = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=addr_params)
+                    resp2.raise_for_status()
+                    addr_features = resp2.json().get("features", [])
+
+                # POI results always come first
+                all_features = poi_features + addr_features
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"Geocoding API error: {e.response.status_code}")
     except httpx.RequestError:
@@ -64,7 +90,7 @@ async def geocode(
 
     # Transform to simplified response
     results = []
-    for feature in data.get("features", []):
+    for feature in all_features:
         center = feature.get("center", [0, 0])
         properties = feature.get("properties", {})
         # Extract POI category from Mapbox response
@@ -74,7 +100,7 @@ async def geocode(
             place_types = feature.get("place_type", [])
             category = place_types[0] if place_types else ""
         # Extract address context for display
-        address = feature.get("properties", {}).get("address", "")
+        address = properties.get("address", "")
         results.append({
             "name": feature.get("text", ""),
             "place_name": feature.get("place_name", ""),
