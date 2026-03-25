@@ -12,16 +12,15 @@ Usage:
     python classify_crossings.py --help
 
 Requirements:
-    pip install shapely
+    No external dependencies required.
 """
 
 import argparse
 import json
+import math
 import os
 import sys
 from collections import defaultdict
-
-from shapely.geometry import Point, LineString, shape
 
 # ── Constants ─────────────────────────────────────────────────────────
 MAX_SPEED_MPH = 35
@@ -39,7 +38,6 @@ def load_json(path: str, label: str):
 
 def haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Approximate distance in meters between two lat/lon points."""
-    import math
     R = 6371000  # Earth radius in meters
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
@@ -71,7 +69,7 @@ def find_road_intersections(features: list, speed_data: dict) -> list[dict]:
 
         if speed_limit is not None and speed_limit > MAX_SPEED_MPH:
             major_segments[osm_id] = feature
-        elif cart_legal == True or cart_legal == "true":
+        elif str(cart_legal).lower() == "true":
             cart_legal_segments[osm_id] = feature
 
     # Build a spatial index of major road coordinates (rounded for matching)
@@ -121,15 +119,36 @@ def tag_signalized_crossings(crossings: list[dict], signals: list[dict]) -> list
     """
     Match traffic signal nodes to crossing points.
     A crossing is 'signalized' if a traffic signal is within SIGNAL_SNAP_DISTANCE_M.
+    Uses a grid-based spatial index for O(N+M) average performance.
     """
+    # Build a grid index of signals (~0.0003° ≈ 33m cell size at this latitude)
+    GRID_SIZE = 0.0003
+    signal_grid: dict[tuple[int, int], list[dict]] = defaultdict(list)
+    for signal in signals:
+        gx = int(signal["lon"] / GRID_SIZE)
+        gy = int(signal["lat"] / GRID_SIZE)
+        signal_grid[(gx, gy)].append(signal)
+
     for crossing in crossings:
         clat, clon = crossing["lat"], crossing["lon"]
-        for signal in signals:
-            dist = haversine_m(clat, clon, signal["lat"], signal["lon"])
-            if dist <= SIGNAL_SNAP_DISTANCE_M:
-                crossing["has_signal"] = True
-                crossing["signal_node_id"] = signal["node_id"]
+        gx = int(clon / GRID_SIZE)
+        gy = int(clat / GRID_SIZE)
+
+        # Check the 3x3 neighborhood of grid cells
+        found = False
+        for dx in (-1, 0, 1):
+            if found:
                 break
+            for dy in (-1, 0, 1):
+                for signal in signal_grid.get((gx + dx, gy + dy), []):
+                    dist = haversine_m(clat, clon, signal["lat"], signal["lon"])
+                    if dist <= SIGNAL_SNAP_DISTANCE_M:
+                        crossing["has_signal"] = True
+                        crossing["signal_node_id"] = signal["node_id"]
+                        found = True
+                        break
+                if found:
+                    break
 
     return crossings
 

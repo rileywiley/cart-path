@@ -22,6 +22,7 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
   const mapContainer = useRef(null);
   const map = useRef(null);
   const userMarker = useRef(null);
+  const altLayerIds = useRef([]);  // Track created alternative layer/source IDs for cleanup
   const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
@@ -79,14 +80,17 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
   useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
-    // Remove existing route layers (alternatives + primary)
-    for (let i = 0; i < 5; i++) {
-      const altIds = [`route-alt-${i}-line`, `route-alt-${i}-casing`];
-      altIds.forEach((id) => {
+    // Remove previously created alternative layers/sources
+    for (const sourceId of altLayerIds.current) {
+      const layerIds = [`${sourceId}-line`, `${sourceId}-casing`];
+      layerIds.forEach((id) => {
         if (map.current.getLayer(id)) map.current.removeLayer(id);
       });
-      if (map.current.getSource(`route-alt-${i}`)) map.current.removeSource(`route-alt-${i}`);
+      if (map.current.getSource(sourceId)) map.current.removeSource(sourceId);
     }
+    altLayerIds.current = [];
+
+    // Remove primary route layers
     const primaryIds = ['route-line', 'route-line-casing'];
     primaryIds.forEach((id) => {
       if (map.current.getLayer(id)) map.current.removeLayer(id);
@@ -101,6 +105,7 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
         if (i === selectedAltIndex || !alt.route_geometry) return;
 
         const sourceId = `route-alt-${i}`;
+        altLayerIds.current.push(sourceId);
         map.current.addSource(sourceId, {
           type: 'geojson',
           data: {

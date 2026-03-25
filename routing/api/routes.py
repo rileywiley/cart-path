@@ -28,9 +28,6 @@ MAX_SPEED_MPH = 35
 DEFAULT_CART_SPEED_MPH = 23
 METERS_PER_MILE = 1609.34
 
-# Road types considered "residential" for the residential-only route option
-RESIDENTIAL_ROAD_TYPES = {"residential", "living_street", "service"}
-
 # Speed data loaded at startup via load_speed_data()
 _speed_data: dict = {}
 
@@ -98,17 +95,30 @@ async def query_osrm(start: Coordinates, end: Coordinates, alternatives: bool = 
 
 def classify_road_type(step: dict) -> str:
     """Infer road type from OSRM step metadata."""
-    # OSRM step includes driving_side, mode, and maneuver info
-    # The 'ref' field and road class hints come from the name/ref
-    name = (step.get("name") or "").lower()
     ref = (step.get("ref") or "").lower()
 
     # Heuristics based on naming patterns common in the FL pilot region
     if ref and any(prefix in ref for prefix in ["sr ", "us ", "fl ", "cr "]):
         return "classified"  # State/county road — likely primary/secondary
 
-    # Check against speed data for more precise classification
     return "unknown"
+
+
+def is_residential_road(step: dict, speed_limit: float | None, road_type: str) -> bool:
+    """
+    Determine if a road segment is residential-type.
+    Uses speed limit and road reference heuristics because OSRM steps don't
+    expose the original OSM highway tag directly. In the FL pilot region:
+    - Roads ≤25 MPH are almost always residential/living_street
+    - Roads with no state/county ref and ≤30 MPH are likely residential
+    """
+    if speed_limit is not None and speed_limit <= 25:
+        return True
+    if road_type != "classified":
+        ref = step.get("ref") or ""
+        if not ref and (speed_limit is None or speed_limit <= 30):
+            return True
+    return False
 
 
 def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[RouteSegment], dict]:
@@ -151,14 +161,7 @@ def analyze_route_compliance(route: dict) -> tuple[str, list[Warning], list[Rout
 
             # Determine if this is a residential-type road
             road_type = classify_road_type(step)
-            is_residential = False
-            if speed_limit is not None and speed_limit <= 25:
-                is_residential = True
-            elif road_type not in ("classified",):
-                # Roads with no ref and low speed are likely residential
-                ref = step.get("ref") or ""
-                if not ref and (speed_limit is None or speed_limit <= 30):
-                    is_residential = True
+            is_residential = is_residential_road(step, speed_limit, road_type)
 
             if is_residential:
                 residential_miles += distance_miles
@@ -277,7 +280,7 @@ async def compute_route(req: RouteRequest):
         # Re-label it if it's not already the best route
         if residential_route["route_id"] != alternatives[0]["route_id"]:
             residential_route["label"] = "Residential roads"
-        elif len(alternatives) > 1:
+        else:
             # If the best route is already the most residential, label the next one
             alternatives[1]["label"] = "Faster route"
             alternatives[0]["label"] = "Residential roads"
