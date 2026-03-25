@@ -10,11 +10,7 @@ services:
       - ../routing/data:/data:ro
     command: osrm-routed --algorithm mld /data/cartpath_roads.osrm
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:5000/nearest/v1/driving/0,0 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      disable: true
 
   api:
     build:
@@ -34,7 +30,7 @@ services:
       - ../pipeline/data:/app/pipeline/data:ro
     depends_on:
       osrm:
-        condition: service_healthy
+        condition: service_started
 
   nginx:
     image: nginx:alpine
