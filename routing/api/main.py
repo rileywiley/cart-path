@@ -80,14 +80,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow the frontend dev server and production origins
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# CORS — configurable via CARTPATH_CORS_ORIGINS env var (comma-separated)
+_cors_env = os.environ.get("CARTPATH_CORS_ORIGINS", "")
+cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+if not cors_origins:
+    cors_origins = [
         "http://localhost:5173",   # Vite dev server
         "http://localhost:3000",
-        "https://cartpath.app",
-    ],
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -8,23 +8,6 @@
     <title>CartPath</title>
     <link rel="manifest" href="/manifest.json" />
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
-    <script>
-      // Plausible analytics — only loaded when domain is configured at build time
-      (function() {
-        var domain = '%VITE_PLAUSIBLE_DOMAIN%';
-        if (domain && !domain.startsWith('%')) {
-          var s = document.createElement('script');
-          s.defer = true;
-          s.dataset.domain = domain;
-          s.dataset.api = 'https://plausible.io/api/event';
-          s.src = 'https://plausible.io/js/script.js';
-          document.head.appendChild(s);
-          window.plausible = window.plausible || function() {
-            (window.plausible.q = window.plausible.q || []).push(arguments);
-          };
-        }
-      })();
-    </script>
   </head>
   <body>
     <div id="root"></div>

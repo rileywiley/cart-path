@@ -12,6 +12,19 @@
 const ANALYTICS_ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT || '';
 const PLAUSIBLE_DOMAIN = import.meta.env.VITE_PLAUSIBLE_DOMAIN || '';
 
+// Dynamically inject Plausible script if domain is configured
+if (PLAUSIBLE_DOMAIN && typeof document !== 'undefined') {
+  const s = document.createElement('script');
+  s.defer = true;
+  s.dataset.domain = PLAUSIBLE_DOMAIN;
+  s.dataset.api = 'https://plausible.io/api/event';
+  s.src = 'https://plausible.io/js/script.js';
+  document.head.appendChild(s);
+  window.plausible = window.plausible || function() {
+    (window.plausible.q = window.plausible.q || []).push(arguments);
+  };
+}
+
 let _userId = null;
 
 /** Link analytics to an authenticated user (call with null to unlink). */
