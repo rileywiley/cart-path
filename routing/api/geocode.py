@@ -5,7 +5,10 @@ GET /api/geocode?q={query} — proxies to Mapbox Geocoding API,
 biased to the Baldwin Park pilot region.
 """
 
+from __future__ import annotations
+
 import os
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
@@ -23,8 +26,8 @@ PROXIMITY = "-81.3089,28.5641"       # center point for result biasing
 @router.get("/geocode")
 async def geocode(
     q: str = Query(..., min_length=2, description="Search query"),
-    proximity_lat: float | None = Query(None, description="User latitude for proximity bias"),
-    proximity_lon: float | None = Query(None, description="User longitude for proximity bias"),
+    proximity_lat: Optional[float] = Query(None, description="User latitude for proximity bias"),
+    proximity_lon: Optional[float] = Query(None, description="User longitude for proximity bias"),
 ):
     if not MAPBOX_TOKEN:
         raise HTTPException(
