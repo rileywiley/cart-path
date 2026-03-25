@@ -18,6 +18,29 @@ HEALTH_JSON = os.environ.get("CARTPATH_HEALTH_JSON", "pipeline/data/health.json"
 STALENESS_DAYS = 10
 
 
+def check_data_staleness() -> dict:
+    """Check data freshness from health.json. Used by periodic background task."""
+    if not os.path.exists(HEALTH_JSON):
+        return {"status": "missing", "message": "health.json not found"}
+    try:
+        with open(HEALTH_JSON) as f:
+            health_data = json.load(f)
+        timestamp = health_data.get("timestamp", "")
+        if not timestamp:
+            return {"status": "error", "message": "No timestamp in health.json"}
+        data_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        age_days = (datetime.now(timezone.utc) - data_time).total_seconds() / 86400
+        if age_days > STALENESS_DAYS:
+            return {
+                "status": "stale",
+                "message": f"Data is {age_days:.0f} days old (threshold: {STALENESS_DAYS} days)",
+                "age_days": age_days,
+            }
+        return {"status": "fresh", "age_days": age_days}
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        return {"status": "error", "message": str(e)}
+
+
 @router.get("/health")
 async def health_check():
     status = {

@@ -65,24 +65,55 @@ export function trackEvent(eventName, payload = {}) {
 
 /**
  * Track page load performance via Web Vitals.
- * Uses PerformanceObserver for accurate LCP measurement.
+ * Measures LCP, FID, and CLS per PRD Analytics Event Taxonomy.
  */
 export function trackPageLoad() {
   if (typeof window === 'undefined' || typeof PerformanceObserver === 'undefined') return;
 
+  const vitals = {};
+
+  function reportVitals() {
+    if (vitals.lcp !== undefined) {
+      trackEvent('page_load_time', vitals);
+    }
+  }
+
   try {
+    // LCP (Largest Contentful Paint)
     new PerformanceObserver((entryList) => {
       const entries = entryList.getEntries();
-      const lcpEntry = entries[entries.length - 1]; // last LCP entry is the final one
+      const lcpEntry = entries[entries.length - 1];
       if (lcpEntry) {
-        trackEvent('page_load_time', {
-          lcp: Math.round(lcpEntry.startTime),
-        });
+        vitals.lcp = Math.round(lcpEntry.startTime);
+        reportVitals();
       }
     }).observe({ type: 'largest-contentful-paint', buffered: true });
-  } catch {
-    // PerformanceObserver not supported — skip
-  }
+  } catch { /* not supported */ }
+
+  try {
+    // FID (First Input Delay)
+    new PerformanceObserver((entryList) => {
+      const entries = entryList.getEntries();
+      if (entries.length > 0) {
+        vitals.fid = Math.round(entries[0].processingStart - entries[0].startTime);
+        reportVitals();
+      }
+    }).observe({ type: 'first-input', buffered: true });
+  } catch { /* not supported */ }
+
+  try {
+    // CLS (Cumulative Layout Shift)
+    let clsValue = 0;
+    new PerformanceObserver((entryList) => {
+      for (const entry of entryList.getEntries()) {
+        if (!entry.hadRecentInput) {
+          clsValue += entry.value;
+        }
+      }
+      vitals.cls = Math.round(clsValue * 1000) / 1000;
+      reportVitals();
+    }).observe({ type: 'layout-shift', buffered: true });
+  } catch { /* not supported */ }
 }
 
 // Auto-track page load

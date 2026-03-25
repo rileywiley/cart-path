@@ -1,0 +1,8 @@
+[
+  {
+    "_comment": "Manual road exclusions — roads explicitly prohibited by county ordinance.",
+    "_instructions": "Add OSM way IDs here with a reason. Run build_graph.py to apply.",
+    "osm_id": "0",
+    "reason": "template_entry_remove_me"
+  }
+]

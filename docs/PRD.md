@@ -197,10 +197,6 @@ User-generated reports are critical for improving data quality and building enga
 
 - Turn-by-turn voice navigation
 
-- Vehicle type toggle: golf cart (≤30 MPH threshold) vs. LSV (≤35 MPH threshold) in settings, with plain-English explanation of the legal distinction
-
-- User accounts with sync across devices
-
 - Native iOS and Android apps (React Native or Flutter)
 
 - Expanded coverage beyond pilot region (see Expansion Criteria below)
@@ -472,13 +468,13 @@ Estimated timeline for a solo developer or 2-person team working full-time. Adju
 
 - **Routing disclaimer: **CartPath provides suggested routes based on available data. Routes are not guaranteed to be legal, safe, or accessible for all vehicles. Users are responsible for obeying all local traffic laws. This disclaimer must appear on first use and be accessible from the route screen.
 
-- **Golf cart vs. LSV/NEV distinction: **Florida law distinguishes between golf carts (max 20 MPH, no VIN, limited equipment) and Low-Speed Vehicles/Neighborhood Electric Vehicles (max 25 MPH, street-legal equipment, VIN required). LSVs may operate on roads with speed limits ≤35 MPH (FL Statute 316.2122); golf carts are limited to ≤30 MPH in some municipalities. CartPath v1 defaults to the 35 MPH LSV threshold. A vehicle type toggle (switching to ≤30 MPH) is planned for v2. The app should include a brief note in its legal/help screen explaining this distinction so users can self-assess which rules apply to their vehicle.
+- **Golf cart vs. LSV/NEV distinction: **Florida law distinguishes between golf carts (max 20 MPH, no VIN, limited equipment) and Low-Speed Vehicles/Neighborhood Electric Vehicles (max 25 MPH, street-legal equipment, VIN required). LSVs may operate on roads with speed limits ≤35 MPH (FL Statute 316.2122); golf carts are limited to roads ≤25 MPH for conservative safety routing. CartPath v1 includes both modes: LSV (≤35 MPH, default) and golf cart (≤25 MPH), selectable via the vehicle type toggle in account settings. The app includes a brief note in its About/help screen explaining this distinction so users can self-assess which rules apply to their vehicle.
 
 - **Multi-county jurisdictions: **The 30-mile pilot radius crosses Orange, Seminole, Osceola, and potentially Lake counties. Each county and municipality may impose additional golf cart restrictions beyond state law: designated cart corridors, time-of-day limits, or specific road prohibitions. v1 includes a general disclaimer noting this. The app’s “About” screen should link to each county’s golf cart ordinance page. If any roads are identified as explicitly prohibited by local ordinance, exclude them from the routing graph manually (expected: 10–20 roads, curated by hand). Community reports (v1.5) will crowd-source additional local restrictions over time.
 
 - **Night and weather restrictions: **Some FL municipalities restrict golf cart operation after dark or during severe weather. v1 includes a line in the legal disclaimer: “Some areas restrict golf cart use after dark or during severe weather. Check local regulations.” A sunset-aware reminder banner is planned for v2.
 
-- **Data privacy: **v1 stores no personal data (routes are in local storage only). Analytics use anonymous session IDs with no PII. When user accounts are added in v2, comply with Florida’s data privacy laws and consider CCPA/GDPR if expanding beyond FL.
+- **Data privacy: **v1 supports optional user accounts via passwordless email verification. Authenticated users can sync saved routes across devices; guest users store routes in localStorage only. Analytics use anonymous session IDs with no PII. User accounts store only email, display name, vehicle type preference, and saved routes. Comply with Florida’s data privacy laws and consider CCPA/GDPR if expanding beyond FL.
 
 - **OSM license compliance: **OpenStreetMap data is licensed under ODbL. CartPath must provide attribution (“© OpenStreetMap contributors”) on the map interface.
 
@@ -500,7 +496,7 @@ All open questions from v1.0 and the gap analysis have been resolved. This table
 | 6 | Service road handling? | Cart-legal by default, 10 MPH routing penalty. Exclude driveway/parking_aisle subtypes. | Resolved |
 | 7 | FDOT data ingestion? | Bulk download, self-host, spatial join. Script spec in Section 6.4. | Resolved |
 | 8 | Pilot boundary handling? | Soft boundary with partial route option. See Section 5.5. | Resolved |
-| 9 | Golf cart vs. LSV? | Default 35 MPH (LSV) for v1. Toggle deferred to v2. | Resolved |
+| 9 | Golf cart vs. LSV? | v1 includes both modes: golf cart (≤25 MPH) and LSV (≤35 MPH, default). Users can toggle via vehicle type selector in account settings. | Resolved |
 | 10 | Error states and feedback? | 5 error states specced. Mailto link for problem reports. See Section 5.6. | Resolved |
 | 11 | Multi-county jurisdictions? | Disclaimer + county ordinance links + manual road exclusions. | Resolved |
 | 12 | Analytics platform? | Plausible Cloud ($9/mo) recommended for ease of setup. Self-hosted is fallback. | Resolved |

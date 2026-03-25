@@ -11,6 +11,13 @@ const SPEED_COLORS = {
   illegal: '#ef4444',      // red — >35 MPH
 };
 
+// Line patterns for accessibility (non-color indicators per PRD)
+const SPEED_DASH_PATTERNS = {
+  legal_low: null,          // solid line — ≤25 MPH (safest)
+  legal_high: [6, 3],       // dashed — 26-35 MPH (caution)
+  illegal: [2, 2],          // dotted — >35 MPH (not cart-legal)
+};
+
 const ROUTE_COLORS = {
   compliant: '#16a34a',
   noncompliant: '#f97316',
@@ -35,6 +42,7 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
       center: [center.lon, center.lat],
       zoom: 13,
       attributionControl: true,
+      customAttribution: '© OpenStreetMap contributors',
     });
 
     // Navigation controls with 56px touch targets
@@ -160,12 +168,18 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
       ? ROUTE_COLORS.compliant
       : ROUTE_COLORS.noncompliant;
 
+    const routePaint = { 'line-color': color, 'line-width': 5 };
+    // Accessibility: use dash pattern to distinguish compliant from non-compliant
+    if (route.compliance !== 'full') {
+      routePaint['line-dasharray'] = SPEED_DASH_PATTERNS.legal_high;
+    }
+
     map.current.addLayer({
       id: 'route-line',
       type: 'line',
       source: 'route',
       layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': color, 'line-width': 5 },
+      paint: routePaint,
     });
 
     // Fit map to all route bounds (include alternatives for context)

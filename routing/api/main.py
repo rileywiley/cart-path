@@ -7,6 +7,8 @@ Usage:
     uvicorn routing.api.main:app --reload --port 8000
 """
 
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -17,9 +19,41 @@ from fastapi.staticfiles import StaticFiles
 from .auth import router as auth_router
 from .db import close_db, init_db
 from .geocode import router as geocode_router
-from .health import router as health_router
+from .health import check_data_staleness, router as health_router
 from .routes import load_speed_data, router as routes_router
 from .saved import router as saved_router
+
+logger = logging.getLogger("cartpath")
+
+HEALTH_CHECK_INTERVAL = int(os.environ.get("CARTPATH_HEALTH_CHECK_INTERVAL", 6 * 3600))
+
+
+async def periodic_health_check():
+    """Background task: check data staleness every 6 hours and log warnings."""
+    while True:
+        await asyncio.sleep(HEALTH_CHECK_INTERVAL)
+        try:
+            result = check_data_staleness()
+            if result["status"] == "stale":
+                logger.warning(
+                    "Data staleness alert: %s (age: %.1f days)",
+                    result["message"],
+                    result["age_days"],
+                )
+                # Optional webhook alert
+                webhook_url = os.environ.get("CARTPATH_ALERT_WEBHOOK")
+                if webhook_url:
+                    import httpx
+                    async with httpx.AsyncClient(timeout=10) as client:
+                        await client.post(webhook_url, json={
+                            "text": f"CartPath data staleness alert: {result['message']}",
+                        })
+            elif result["status"] == "missing":
+                logger.warning("Health check: health.json not found — pipeline may not have run")
+            else:
+                logger.info("Health check: data is fresh (%.1f days old)", result.get("age_days", 0))
+        except Exception:
+            logger.exception("Periodic health check failed")
 
 
 @asynccontextmanager
@@ -28,7 +62,14 @@ async def lifespan(app):
     load_speed_data()
     # Initialize user database
     await init_db()
+    # Start periodic health check
+    health_task = asyncio.create_task(periodic_health_check())
+    # Run initial staleness check
+    result = check_data_staleness()
+    if result["status"] in ("stale", "missing"):
+        logger.warning("Startup health check: %s", result.get("message", result["status"]))
     yield
+    health_task.cancel()
     await close_db()
 
 

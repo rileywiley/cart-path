@@ -257,6 +257,32 @@ def main():
     signals = extract_signal_nodes(signal_elements)
     print(f"  Traffic signal/crossing nodes found: {len(signals):,}")
 
+    # Validate segment count against previous run
+    new_count = len(geojson["features"])
+    if os.path.exists(args.output):
+        try:
+            with open(args.output) as f:
+                prev_data = json.load(f)
+            prev_count = len(prev_data.get("features", []))
+            if prev_count > 0:
+                drop_pct = (prev_count - new_count) / prev_count * 100
+                if drop_pct > 10:
+                    print(
+                        f"\n  WARNING: Segment count dropped by {drop_pct:.1f}% "
+                        f"({prev_count:,} → {new_count:,}).",
+                        file=sys.stderr,
+                    )
+                    print(
+                        "  This exceeds the 10% safety threshold. Manual review required.",
+                        file=sys.stderr,
+                    )
+                    print("  Previous output preserved. Exiting.", file=sys.stderr)
+                    sys.exit(1)
+                elif drop_pct > 0:
+                    print(f"  Segment count change: {prev_count:,} → {new_count:,} ({drop_pct:+.1f}%)")
+        except (json.JSONDecodeError, KeyError):
+            pass  # No valid previous data — skip validation
+
     # Write output
     os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
     with open(args.output, "w") as f:
