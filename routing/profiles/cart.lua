@@ -69,10 +69,10 @@ function process_node(profile, node, result, relations)
       if crossing_signal == 'no' then
         -- Unsignalized crossing of a >35 MPH road: heavy penalty
         result.barrier = true
-        result.duration_penalty = profile.unsignalized_crossing_penalty
+        result.penalty = profile.unsignalized_crossing_penalty
       elseif crossing_signal == 'yes' then
-        -- Signalized crossing: small bonus (negative penalty = preference)
-        result.duration_penalty = profile.signalized_crossing_bonus
+        -- Signalized crossing: small bonus via reduced penalty
+        result.penalty = 0
       end
     end
   end
