@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 
 export default function SearchBar({ userLocation, onRouteRequest, onClear, loading }) {
   const [startText, setStartText] = useState('Current Location');
@@ -7,10 +7,25 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
   const [endCoords, setEndCoords] = useState(null);
   const [suggestions, setSuggestions] = useState([]);
   const [activeField, setActiveField] = useState(null);
+  const [validationError, setValidationError] = useState(null);
+  const [geocoding, setGeocoding] = useState(false);
   const debounceRef = useRef(null);
+  const formRef = useRef(null);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (formRef.current && !formRef.current.contains(e.target)) {
+        setSuggestions([]);
+        setActiveField(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchSuggestions = useCallback(async (query) => {
-    if (!query || query.length < 3) {
+    if (!query || query.length < 2) {
       setSuggestions([]);
       return;
     }
@@ -29,13 +44,33 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     }, 300);
   }, []);
 
+  // Geocode a text query and return the first result's coords, or null
+  const geocodeText = useCallback(async (query) => {
+    if (!query || query.length < 2) return null;
+    try {
+      const resp = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const results = data.results || [];
+      if (results.length > 0) {
+        return { lat: results[0].lat, lon: results[0].lon, place_name: results[0].place_name };
+      }
+    } catch {
+      // fall through
+    }
+    return null;
+  }, []);
+
   const handleStartChange = (e) => {
     const val = e.target.value;
     setStartText(val);
     setStartCoords(null);
     setActiveField('start');
+    setValidationError(null);
     if (val !== 'Current Location') {
       fetchSuggestions(val);
+    } else {
+      setSuggestions([]);
     }
   };
 
@@ -43,47 +78,101 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     setEndText(e.target.value);
     setEndCoords(null);
     setActiveField('end');
+    setValidationError(null);
     fetchSuggestions(e.target.value);
   };
 
   const handleSelectSuggestion = (suggestion) => {
     const coords = { lat: suggestion.lat, lon: suggestion.lon };
     if (activeField === 'start') {
-      setStartText(suggestion.place_name);
+      setStartText(suggestion.place_name || suggestion.name);
       setStartCoords(coords);
     } else {
-      setEndText(suggestion.place_name);
+      setEndText(suggestion.place_name || suggestion.name);
       setEndCoords(coords);
     }
     setSuggestions([]);
     setActiveField(null);
+    setValidationError(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setValidationError(null);
+    setSuggestions([]);
 
-    const start = startText === 'Current Location' && userLocation
-      ? userLocation
-      : startCoords;
+    // Resolve start coordinates
+    let start = null;
+    if (startText === 'Current Location' && userLocation) {
+      start = userLocation;
+    } else if (startCoords) {
+      start = startCoords;
+    } else if (startText && startText !== 'Current Location') {
+      // Auto-geocode the typed start text
+      setGeocoding(true);
+      const result = await geocodeText(startText);
+      setGeocoding(false);
+      if (result) {
+        start = { lat: result.lat, lon: result.lon };
+        setStartCoords(start);
+        setStartText(result.place_name);
+      }
+    }
 
-    const end = endCoords;
+    // Resolve end coordinates
+    let end = endCoords;
+    if (!end && endText) {
+      // Auto-geocode the typed destination text
+      setGeocoding(true);
+      const result = await geocodeText(endText);
+      setGeocoding(false);
+      if (result) {
+        end = { lat: result.lat, lon: result.lon };
+        setEndCoords(end);
+        setEndText(result.place_name);
+      }
+    }
 
-    if (!start || !end) return;
+    // Validate
+    if (!start && !end) {
+      setValidationError('Enter a starting point and destination.');
+      return;
+    }
+    if (!start) {
+      setValidationError(
+        startText === 'Current Location'
+          ? 'Location unavailable. Enter a starting address.'
+          : 'Could not find that starting location. Select from suggestions.'
+      );
+      return;
+    }
+    if (!end) {
+      setValidationError(
+        endText
+          ? 'Could not find that destination. Try a different search.'
+          : 'Enter a destination.'
+      );
+      return;
+    }
 
     onRouteRequest(start, end);
-    setSuggestions([]);
     setActiveField(null);
   };
 
   const handleClear = () => {
     setEndText('');
     setEndCoords(null);
+    setStartText('Current Location');
+    setStartCoords(null);
     setSuggestions([]);
+    setValidationError(null);
     onClear();
   };
 
+  const isSubmitting = loading || geocoding;
+
   return (
-    <form className="search-bar" onSubmit={handleSubmit} role="search" aria-label="Route search">
+    <form className="search-bar" onSubmit={handleSubmit} role="search" aria-label="Route search" ref={formRef}>
       <div className="search-fields">
         <div className="search-field">
           <label htmlFor="start-input" className="sr-only">Starting point</label>
@@ -92,7 +181,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
             type="text"
             value={startText}
             onChange={handleStartChange}
-            onFocus={() => setActiveField('start')}
+            onFocus={() => { setActiveField('start'); setValidationError(null); }}
             placeholder="Start location"
             aria-label="Starting point"
             autoComplete="off"
@@ -105,7 +194,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
             type="text"
             value={endText}
             onChange={handleEndChange}
-            onFocus={() => setActiveField('end')}
+            onFocus={() => { setActiveField('end'); setValidationError(null); }}
             placeholder="Where to?"
             aria-label="Destination"
             autoComplete="off"
@@ -113,18 +202,22 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
         </div>
       </div>
 
+      {validationError && (
+        <p className="search-validation-error" role="alert">{validationError}</p>
+      )}
+
       <div className="search-actions">
-        <button type="submit" disabled={loading} className="btn-primary" aria-label="Get route">
-          {loading ? 'Finding route...' : 'Go'}
+        <button type="submit" disabled={isSubmitting} className="btn-primary btn-go" aria-label="Get route">
+          {isSubmitting ? 'Finding...' : 'Go'}
         </button>
-        {endText && (
+        {(endText || startText !== 'Current Location') && (
           <button type="button" onClick={handleClear} className="btn-secondary" aria-label="Clear route">
             Clear
           </button>
         )}
       </div>
 
-      {suggestions.length > 0 && (
+      {suggestions.length > 0 && activeField && (
         <ul className="suggestions" role="listbox" aria-label="Address suggestions">
           {suggestions.map((s, i) => (
             <li key={s.place_name || i} role="option" onClick={() => handleSelectSuggestion(s)}>

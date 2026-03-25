@@ -189,6 +189,13 @@ body {
   box-shadow: 0 0 0 2px rgba(45, 122, 79, 0.2);
 }
 
+.search-validation-error {
+  color: var(--color-error);
+  font-size: 0.875rem;
+  margin-top: 8px;
+  padding: 0 4px;
+}
+
 .search-actions {
   display: flex;
   gap: 8px;
