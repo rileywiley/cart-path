@@ -1,10 +1,11 @@
 services:
   osrm:
     image: osrm/osrm-backend
+    platform: linux/amd64
     container_name: cartpath-osrm
     restart: unless-stopped
     ports:
-      - "5000:5000"
+      - "5001:5000"
     volumes:
       - ../routing/data:/data:ro
     command: osrm-routed --algorithm mld /data/cartpath_roads.osrm
