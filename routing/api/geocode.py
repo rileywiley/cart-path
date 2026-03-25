@@ -41,10 +41,10 @@ async def geocode(
     else:
         proximity = PROXIMITY
 
-    base_params = {
+    # Shared params for all requests
+    common_params = {
         "access_token": MAPBOX_TOKEN,
         "autocomplete": "true",
-        "bbox": BBOX,
         "proximity": proximity,
         "fuzzyMatch": "true",
         "country": "US",
@@ -57,23 +57,27 @@ async def geocode(
     try:
         async with httpx.AsyncClient(timeout=5) as client:
             if query_is_address:
-                # Address-like query: search addresses and POIs together
-                params = {**base_params, "types": "address,poi,place", "limit": 5}
+                # Address-like query: search addresses and POIs together, bbox-filtered
+                params = {**common_params, "bbox": BBOX, "types": "address,poi,place", "limit": 5}
                 resp = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=params)
                 resp.raise_for_status()
                 all_features = resp.json().get("features", [])
             else:
-                # Business-name query: search POIs first, backfill with addresses
-                poi_params = {**base_params, "types": "poi", "limit": 5}
+                # Business-name query: search POIs first WITHOUT bbox
+                # (bbox hard-filters and drops chain-store POIs that Mapbox
+                #  indexes at a city/region centroid just outside the box).
+                # Proximity bias ensures nearby results rank highest.
+                poi_params = {**common_params, "types": "poi", "limit": 5}
                 resp = await client.get(f"{MAPBOX_GEOCODE_URL}/{q}.json", params=poi_params)
                 resp.raise_for_status()
                 poi_features = resp.json().get("features", [])
 
-                # Backfill with addresses if fewer than 5 POI results
+                # Backfill with address results (bbox-filtered) if fewer than 5 POIs
                 addr_features = []
                 if len(poi_features) < 5:
                     addr_params = {
-                        **base_params,
+                        **common_params,
+                        "bbox": BBOX,
                         "types": "address,place,neighborhood,locality",
                         "limit": 5 - len(poi_features),
                     }
