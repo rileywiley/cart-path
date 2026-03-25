@@ -33,7 +33,11 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
     clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       try {
-        const resp = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+        let url = `/api/geocode?q=${encodeURIComponent(query)}`;
+        if (userLocation) {
+          url += `&proximity_lat=${userLocation.lat}&proximity_lon=${userLocation.lon}`;
+        }
+        const resp = await fetch(url);
         if (resp.ok) {
           const data = await resp.json();
           setSuggestions(data.results || []);
@@ -42,13 +46,17 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
         setSuggestions([]);
       }
     }, 300);
-  }, []);
+  }, [userLocation]);
 
   // Geocode a text query and return the first result's coords, or null
   const geocodeText = useCallback(async (query) => {
     if (!query || query.length < 2) return null;
     try {
-      const resp = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+      let url = `/api/geocode?q=${encodeURIComponent(query)}`;
+      if (userLocation) {
+        url += `&proximity_lat=${userLocation.lat}&proximity_lon=${userLocation.lon}`;
+      }
+      const resp = await fetch(url);
       if (!resp.ok) return null;
       const data = await resp.json();
       const results = data.results || [];
@@ -59,7 +67,7 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
       // fall through
     }
     return null;
-  }, []);
+  }, [userLocation]);
 
   const handleStartChange = (e) => {
     const val = e.target.value;
@@ -222,6 +230,9 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
           {suggestions.map((s, i) => (
             <li key={s.place_name || i} role="option" onClick={() => handleSelectSuggestion(s)}>
               <span className="suggestion-name">{s.name}</span>
+              {s.category && s.category !== 'address' && (
+                <span className="suggestion-category">{s.category}</span>
+              )}
               <span className="suggestion-detail">{s.place_name}</span>
             </li>
           ))}

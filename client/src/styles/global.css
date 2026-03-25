@@ -235,6 +235,18 @@ body {
   font-size: 1rem;
 }
 
+.suggestion-category {
+  display: inline-block;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: #e5e7eb;
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin-left: 6px;
+  vertical-align: middle;
+  text-transform: capitalize;
+}
+
 .suggestion-detail {
   font-size: 0.875rem;
   color: var(--color-text-secondary);

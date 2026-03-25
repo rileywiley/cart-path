@@ -21,21 +21,32 @@ PROXIMITY = "-81.3089,28.5641"       # center point for result biasing
 
 
 @router.get("/geocode")
-async def geocode(q: str = Query(..., min_length=2, description="Search query")):
+async def geocode(
+    q: str = Query(..., min_length=2, description="Search query"),
+    proximity_lat: float | None = Query(None, description="User latitude for proximity bias"),
+    proximity_lon: float | None = Query(None, description="User longitude for proximity bias"),
+):
     if not MAPBOX_TOKEN:
         raise HTTPException(
             status_code=503,
             detail="Geocoding service not configured. Set MAPBOX_ACCESS_TOKEN.",
         )
 
+    # Use user's location for proximity when available, else fall back to region center
+    if proximity_lon is not None and proximity_lat is not None:
+        proximity = f"{proximity_lon},{proximity_lat}"
+    else:
+        proximity = PROXIMITY
+
     params = {
         "access_token": MAPBOX_TOKEN,
         "autocomplete": "true",
         "bbox": BBOX,
-        "proximity": PROXIMITY,
+        "proximity": proximity,
+        "fuzzyMatch": "true",
         "limit": 5,
         "country": "US",
-        "types": "address,poi,place,neighborhood,locality",
+        "types": "poi,address,place,neighborhood,locality",
     }
 
     try:
@@ -52,12 +63,23 @@ async def geocode(q: str = Query(..., min_length=2, description="Search query"))
     results = []
     for feature in data.get("features", []):
         center = feature.get("center", [0, 0])
+        properties = feature.get("properties", {})
+        # Extract POI category from Mapbox response
+        category = properties.get("category", "")
+        if not category:
+            # Fall back to the place type (e.g., "poi", "address")
+            place_types = feature.get("place_type", [])
+            category = place_types[0] if place_types else ""
+        # Extract address context for display
+        address = feature.get("properties", {}).get("address", "")
         results.append({
             "name": feature.get("text", ""),
             "place_name": feature.get("place_name", ""),
             "lat": center[1],
             "lon": center[0],
             "relevance": feature.get("relevance", 0),
+            "category": category,
+            "address": address,
         })
 
     return {"query": q, "results": results}
