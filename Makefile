@@ -2,7 +2,7 @@
 
 # Start all backend services (OSRM, API, Nginx)
 up:
-	docker compose -f deploy/docker-compose.yml up -d
+	docker compose -f deploy/docker-compose.yml up -d --build
 
 # Stop all services
 down:

@@ -6,12 +6,17 @@ import FallbackBanner from './components/FallbackBanner';
 import SavedRoutes from './components/SavedRoutes';
 import Onboarding from './components/Onboarding';
 import ErrorStates from './components/ErrorStates';
+import AuthModal from './components/AuthModal';
+import AccountMenu from './components/AccountMenu';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { trackEvent } from './utils/analytics';
+import { apiFetch } from './utils/api';
 import { loadCoverageBoundary, isInsideCoverage, nearestBoundaryPoint } from './utils/boundary';
 
 const CENTER = { lat: 28.5641, lon: -81.3089 };
 
-export default function App() {
+function AppContent() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [onboardingComplete, setOnboardingComplete] = useState(
     () => localStorage.getItem('cartpath_onboarding') === 'done'
   );
@@ -23,6 +28,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
   const [lastStartCoords, setLastStartCoords] = useState(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
 
   useEffect(() => {
     trackEvent('app_opened');
@@ -76,13 +83,15 @@ export default function App() {
       end_lon: end.lon,
     });
 
+    // Include vehicle type in request if user is authenticated
+    const vehicleType = user?.vehicle_type || 'lsv';
+
     const retries = 2;
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const resp = await fetch('/api/route', {
+        const resp = await apiFetch('/api/route', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start, end }),
+          body: JSON.stringify({ start, end, vehicle_type: vehicleType }),
           signal: AbortSignal.timeout(10000),
         });
 
@@ -116,7 +125,7 @@ export default function App() {
         }
       }
     }
-  }, []);
+  }, [user]);
 
   const handleClearRoute = useCallback(() => {
     setRoute(null);
@@ -151,12 +160,23 @@ export default function App() {
       />
 
       <div className="app-overlay">
-        <SearchBar
-          userLocation={userLocation}
-          onRouteRequest={handleRouteRequest}
-          onClear={handleClearRoute}
-          loading={loading}
-        />
+        <div className="app-top-bar">
+          <SearchBar
+            userLocation={userLocation}
+            onRouteRequest={handleRouteRequest}
+            onClear={handleClearRoute}
+            loading={loading}
+          />
+          {!authLoading && (
+            <button
+              className="btn-auth-toggle"
+              onClick={() => isAuthenticated ? setShowAccountMenu(!showAccountMenu) : setShowAuthModal(true)}
+              aria-label={isAuthenticated ? 'Account settings' : 'Sign in'}
+            >
+              {isAuthenticated ? (user.display_name || user.email.split('@')[0]) : 'Sign in'}
+            </button>
+          )}
+        </div>
 
         {error && (
           <ErrorStates
@@ -205,7 +225,23 @@ export default function App() {
             onClose={() => setShowSaved(false)}
           />
         )}
+
+        {showAuthModal && (
+          <AuthModal onClose={() => setShowAuthModal(false)} />
+        )}
+
+        {showAccountMenu && (
+          <AccountMenu onClose={() => setShowAccountMenu(false)} />
+        )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

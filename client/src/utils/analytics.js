@@ -12,7 +12,15 @@
 const ANALYTICS_ENDPOINT = import.meta.env.VITE_ANALYTICS_ENDPOINT || '';
 const PLAUSIBLE_DOMAIN = import.meta.env.VITE_PLAUSIBLE_DOMAIN || '';
 
+let _userId = null;
+
+/** Link analytics to an authenticated user (call with null to unlink). */
+export function setAnalyticsUserId(userId) {
+  _userId = userId;
+}
+
 function getSessionId() {
+  if (_userId) return _userId;
   let id = localStorage.getItem('cartpath_session_id');
   if (!id) {
     id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
