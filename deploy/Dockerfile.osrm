@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN git clone --branch v5.27.1 --depth 1 https://github.com/Project-OSRM/osrm-backend.git /src/osrm
 WORKDIR /src/osrm/build
 RUN cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_NODE_BINDINGS=OFF \
+        -DCMAKE_CXX_FLAGS="-Wno-error=free-nonheap-object" \
     && make -j$(nproc) \
     && make install
 
