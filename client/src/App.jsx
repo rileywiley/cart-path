@@ -237,9 +237,6 @@ function AppContent() {
 
         {route && (
           <>
-            {route.compliance !== 'full' && (
-              <FallbackBanner warnings={route.warnings} />
-            )}
             <RoutePanel
               route={route}
               alternatives={alternatives}

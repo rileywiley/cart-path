@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiFetch } from '../utils/api';
 import { trackEvent } from '../utils/analytics';
+import FallbackBanner from './FallbackBanner';
 
 export default function RoutePanel({
   route,
@@ -114,6 +115,9 @@ export default function RoutePanel({
 
   return (
     <div className="route-panel" role="region" aria-label="Route details">
+      {route.compliance !== 'full' && (
+        <FallbackBanner warnings={route.warnings} />
+      )}
       {/* Route alternative tabs */}
       {alternatives.length > 1 && (
         <div className="route-alternatives" role="tablist" aria-label="Route options">
