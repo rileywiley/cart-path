@@ -46,8 +46,11 @@ test:
 init:
 	bash deploy/init.sh
 
-# Production build and start
+# Production build and start (removes old client volume to ensure fresh build)
 prod:
+	docker compose -f deploy/docker-compose.yml rm -sf client
+	docker volume rm -f deploy_client-dist 2>/dev/null || true
+	docker compose -f deploy/docker-compose.yml build --no-cache client
 	docker compose -f deploy/docker-compose.yml up -d --build
 	@echo ""
 	@echo "CartPath is running. Check status with: make status"
