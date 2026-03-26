@@ -14,6 +14,7 @@ export default function RoutePanel({
   startCoords,
   onStartRoute,
   onStopNavigation,
+  onClose,
   navigating,
 }) {
   const { isAuthenticated } = useAuth();
@@ -115,6 +116,12 @@ export default function RoutePanel({
 
   return (
     <div className="route-panel" role="region" aria-label="Route details">
+      <div className="route-panel-header">
+        <span></span>
+        <button className="btn-close-route" onClick={onClose} aria-label="Close route">
+          ✕
+        </button>
+      </div>
       {route.compliance !== 'full' && (
         <FallbackBanner warnings={route.warnings} />
       )}

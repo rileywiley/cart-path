@@ -244,6 +244,7 @@ function AppContent() {
                 routeEndCoordsRef.current = null;
                 setNavigating(false);
               }}
+              onClose={handleClearRoute}
             />
           </>
         )}
