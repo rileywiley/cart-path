@@ -64,6 +64,7 @@ run_osrm_docker() {
     docker run --rm -t \
         -v "$DATA_DIR:/data" \
         -v "$(dirname "$PROFILE"):/profile:ro" \
+        -e "LUA_PATH=/usr/local/share/osrm/profiles/?.lua;/usr/local/share/osrm/profiles/lib/?.lua;/profile/?.lua;;" \
         "$OSRM_IMAGE" \
         "$@"
 }
