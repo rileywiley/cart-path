@@ -12,6 +12,8 @@ export default function RoutePanel({
   userLocation,
   startCoords,
   onStartRoute,
+  onStopNavigation,
+  navigating,
 }) {
   const { isAuthenticated } = useAuth();
   const [showSegments, setShowSegments] = useState(false);
@@ -20,6 +22,33 @@ export default function RoutePanel({
   const [saveError, setSaveError] = useState('');
 
   if (!route) return null;
+
+  // Compute remaining distance/time when navigating
+  let remainingMiles = route.distance_miles;
+  let remainingMinutes = Math.round(route.duration_minutes);
+  if (navigating && userLocation && route.route_geometry?.coordinates?.length > 0) {
+    const coords = route.route_geometry.coordinates;
+    const endCoord = coords[coords.length - 1];
+    const toRad = (d) => (d * Math.PI) / 180;
+    const R = 3958.8; // Earth radius in miles
+    const dLat = toRad(endCoord[1] - userLocation.lat);
+    const dLon = toRad(endCoord[0] - userLocation.lon);
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(userLocation.lat)) * Math.cos(toRad(endCoord[1])) * Math.sin(dLon / 2) ** 2;
+    const straightLine = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    // Use straight-line as lower bound, scale by route/straight-line ratio
+    const totalStraight = (() => {
+      const s = coords[0];
+      const dLat2 = toRad(endCoord[1] - s[1]);
+      const dLon2 = toRad(endCoord[0] - s[0]);
+      const a2 = Math.sin(dLat2 / 2) ** 2 +
+        Math.cos(toRad(s[1])) * Math.cos(toRad(endCoord[1])) * Math.sin(dLon2 / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a2), Math.sqrt(1 - a2));
+    })();
+    const ratio = totalStraight > 0 ? route.distance_miles / totalStraight : 1;
+    remainingMiles = Math.max(0, Math.min(route.distance_miles, +(straightLine * ratio).toFixed(1)));
+    remainingMinutes = Math.max(0, Math.round((remainingMiles / route.distance_miles) * route.duration_minutes));
+  }
 
   const handleStartRoute = () => {
     trackEvent('route_started', { route_id: route.route_id });
@@ -115,32 +144,48 @@ export default function RoutePanel({
         </div>
       )}
 
-      <div className="route-summary">
-        <span className="route-summary-text" aria-live="polite" aria-label={
-          route.compliance === 'full'
-            ? `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, all roads ${route.max_speed_mph || 35} MPH or less`
-            : `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, includes roads above speed limit`
-        }>
-          {route.summary}
-        </span>
-        {route.residential_pct != null && (
-          <span className="route-residential-pct">
-            {Math.round(route.residential_pct)}% residential roads
-          </span>
-        )}
-      </div>
+      {navigating ? (
+        <div className="navigation-status" role="status" aria-live="polite">
+          <div className="navigation-info">
+            <span className="navigation-remaining">
+              ~{remainingMinutes} min · {remainingMiles} mi remaining
+            </span>
+            {route.compliance !== 'full' && (
+              <span className="navigation-warning">Includes roads above 35 MPH</span>
+            )}
+          </div>
+          <button className="btn-stop-nav" onClick={onStopNavigation} aria-label="Stop navigation">
+            End
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="route-summary">
+            <span className="route-summary-text" aria-live="polite" aria-label={
+              route.compliance === 'full'
+                ? `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, all roads ${route.max_speed_mph || 35} MPH or less`
+                : `${Math.round(route.duration_minutes)}-minute route, ${route.distance_miles} miles, includes roads above speed limit`
+            }>
+              {route.summary}
+            </span>
+            {route.residential_pct != null && (
+              <span className="route-residential-pct">
+                {Math.round(route.residential_pct)}% residential roads
+              </span>
+            )}
+          </div>
 
-      <div className="route-actions">
-        <button className="btn-primary btn-go" onClick={handleStartRoute} aria-label="Start navigation">
-          Go
-        </button>
-        <button
-          className="btn-secondary"
-          onClick={() => setShowSaveForm(!showSaveForm)}
-          aria-label="Save this route"
-        >
-          Save
-        </button>
+          <div className="route-actions">
+            <button className="btn-primary btn-go" onClick={handleStartRoute} aria-label="Start navigation">
+              Go
+            </button>
+            <button
+              className="btn-secondary"
+              onClick={() => setShowSaveForm(!showSaveForm)}
+              aria-label="Save this route"
+            >
+              Save
+            </button>
         <button
           className="btn-secondary"
           onClick={() => setShowSegments(!showSegments)}
@@ -150,6 +195,8 @@ export default function RoutePanel({
           {showSegments ? 'Hide details' : 'Details'}
         </button>
       </div>
+        </>
+      )}
 
       {showSaveForm && (
         <div className="save-form">

@@ -25,7 +25,7 @@ const ROUTE_COLORS = {
 
 const ALT_ROUTE_COLORS = ['#6b7280', '#9ca3af'];  // Gray shades for non-selected alternatives
 
-export default function Map({ center, route, alternatives = [], selectedAltIndex = 0, userLocation }) {
+export default function Map({ center, route, alternatives = [], selectedAltIndex = 0, userLocation, navigating }) {
   const mapContainer = useRef(null);
   const map = useRef(null);
   const userMarker = useRef(null);
@@ -83,6 +83,17 @@ export default function Map({ center, route, alternatives = [], selectedAltIndex
       userMarker.current.setLngLat([userLocation.lon, userLocation.lat]);
     }
   }, [userLocation]);
+
+  // Follow user location during navigation mode
+  useEffect(() => {
+    if (!map.current || !navigating || !userLocation) return;
+    map.current.easeTo({
+      center: [userLocation.lon, userLocation.lat],
+      zoom: 16,
+      bearing: 0,
+      duration: 500,
+    });
+  }, [navigating, userLocation]);
 
   // Display route alternatives and selected route
   useEffect(() => {

@@ -351,6 +351,52 @@ body {
   margin-top: 12px;
 }
 
+/* ── Navigation Mode ──────────────────────────────────── */
+
+.navigation-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-primary, #16a34a);
+  color: #fff;
+  border-radius: var(--radius, 8px);
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.navigation-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navigation-remaining {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.navigation-warning {
+  font-size: 0.875rem;
+  color: #fde68a;
+}
+
+.btn-stop-nav {
+  min-height: 48px;
+  min-width: 64px;
+  padding: 8px 16px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-stop-nav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .save-form {
   display: flex;
   gap: 8px;

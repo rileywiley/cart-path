@@ -32,6 +32,7 @@ function AppContent() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [navigating, setNavigating] = useState(false);
   const routeStartedRef = useRef(false);
   const routeEndCoordsRef = useRef(null);
 
@@ -39,16 +40,20 @@ function AppContent() {
     trackEvent('app_opened');
     loadCoverageBoundary();
 
-    // Request geolocation on mount (covers return visits after onboarding)
+    // Use watchPosition for continuous location tracking
+    let watchId = null;
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
+      watchId = navigator.geolocation.watchPosition(
         (pos) => {
           setUserLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
         },
         () => { /* permission denied or unavailable — leave userLocation null */ },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
       );
     }
+    return () => {
+      if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    };
   }, []);
 
   // Track route_completed when user is within 100m of destination
@@ -66,6 +71,7 @@ function AppContent() {
       trackEvent('route_completed', { route_id: route?.route_id });
       routeStartedRef.current = false;
       routeEndCoordsRef.current = null;
+      setNavigating(false);
     }
   }, [userLocation, route]);
 
@@ -170,6 +176,7 @@ function AppContent() {
     setAlternatives([]);
     setSelectedAltIndex(0);
     setError(null);
+    setNavigating(false);
   }, [route]);
 
   const handleSelectAlternative = useCallback((index) => {
@@ -195,6 +202,7 @@ function AppContent() {
         alternatives={alternatives}
         selectedAltIndex={selectedAltIndex}
         userLocation={userLocation}
+        navigating={navigating}
       />
 
       <div className="app-overlay">
@@ -240,7 +248,14 @@ function AppContent() {
               onSave={() => setShowSaved(true)}
               userLocation={userLocation}
               startCoords={lastStartCoords}
-              onStartRoute={() => { routeStartedRef.current = true; }}
+              navigating={navigating}
+              onStartRoute={() => { routeStartedRef.current = true; setNavigating(true); }}
+              onStopNavigation={() => {
+                if (route) trackEvent('route_completed', { route_id: route.route_id, reason: 'stopped' });
+                routeStartedRef.current = false;
+                routeEndCoordsRef.current = null;
+                setNavigating(false);
+              }}
             />
           </>
         )}
