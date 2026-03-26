@@ -52,6 +52,7 @@ prod:
 	docker volume rm -f deploy_client-dist 2>/dev/null || true
 	docker compose -f deploy/docker-compose.yml build --no-cache client
 	docker compose -f deploy/docker-compose.yml up -d --build
+	docker compose -f deploy/docker-compose.yml restart nginx
 	@echo ""
 	@echo "CartPath is running. Check status with: make status"
 
