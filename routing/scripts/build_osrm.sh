@@ -8,11 +8,9 @@
 #   ./build_osrm.sh                          # Uses default paths
 #   ./build_osrm.sh /path/to/roads.osm       # Custom OSM file
 #
-# Prerequisites:
-#   - OSRM backend tools installed (osrm-extract, osrm-partition, osrm-customize)
-#   - Or use Docker: docker pull osrm/osrm-backend
-#
-# The script supports both native OSRM tools and Docker-based execution.
+# Supports native OSRM tools or Docker-based execution.
+# On ARM64 (Oracle Cloud, Apple Silicon), builds a custom image
+# since osrm/osrm-backend is x86-only.
 
 set -euo pipefail
 
@@ -23,7 +21,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 OSM_FILE="${1:-$PROJECT_ROOT/pipeline/data/cartpath_roads.osm}"
 PROFILE="$PROJECT_ROOT/routing/profiles/cart.lua"
 DATA_DIR="$PROJECT_ROOT/routing/data"
-USE_DOCKER="${USE_DOCKER:-auto}"
+OSRM_IMAGE="cartpath-osrm-tools"
 
 echo "CartPath — OSRM Graph Build"
 echo "  OSM file: $OSM_FILE"
@@ -48,71 +46,54 @@ mkdir -p "$DATA_DIR"
 # Copy OSM file to data dir for OSRM processing
 cp "$OSM_FILE" "$DATA_DIR/cartpath_roads.osm"
 
-# Detect OSRM installation
-run_osrm() {
-    local cmd="$1"
-    shift
-
-    if [ "$USE_DOCKER" = "native" ] || command -v "$cmd" &>/dev/null; then
-        "$cmd" "$@"
-    elif [ "$USE_DOCKER" = "docker" ] || command -v docker &>/dev/null; then
-        docker run --rm -t \
-            -v "$DATA_DIR:/data" \
-            -v "$PROFILE:/profile/cart.lua:ro" \
-            osrm/osrm-backend \
-            "$cmd" "$@"
-    else
-        echo "ERROR: Neither OSRM tools nor Docker found."
-        echo "  Install OSRM: https://github.com/Project-OSRM/osrm-backend"
-        echo "  Or install Docker and pull osrm/osrm-backend"
-        exit 1
-    fi
-}
-
-echo "Step 1/3: osrm-extract (parsing road network)..."
+# Detect whether to use native OSRM or Docker
+use_native=false
 if command -v osrm-extract &>/dev/null; then
-    osrm-extract -p "$PROFILE" "$DATA_DIR/cartpath_roads.osm"
-elif command -v docker &>/dev/null; then
+    use_native=true
+fi
+
+# Build the custom OSRM Docker image if needed (supports ARM64)
+if [ "$use_native" = "false" ] && command -v docker &>/dev/null; then
+    if ! docker image inspect "$OSRM_IMAGE" &>/dev/null; then
+        echo "Building OSRM Docker image for $(uname -m) (first time only, ~5 min)..."
+        docker build -t "$OSRM_IMAGE" -f "$PROJECT_ROOT/deploy/Dockerfile.osrm" "$PROJECT_ROOT"
+    fi
+fi
+
+run_osrm_docker() {
     docker run --rm -t \
         -v "$DATA_DIR:/data" \
         -v "$(dirname "$PROFILE"):/profile:ro" \
-        osrm/osrm-backend \
-        osrm-extract -p /profile/cart.lua /data/cartpath_roads.osm
+        "$OSRM_IMAGE" \
+        "$@"
+}
+
+echo "Step 1/3: osrm-extract (parsing road network)..."
+if [ "$use_native" = "true" ]; then
+    osrm-extract -p "$PROFILE" "$DATA_DIR/cartpath_roads.osm"
 else
-    echo "ERROR: No OSRM tools available."
-    exit 1
+    run_osrm_docker osrm-extract -p /profile/cart.lua /data/cartpath_roads.osm
 fi
 echo "  Done."
 
 echo ""
 echo "Step 2/3: osrm-partition (building multi-level partition)..."
-if command -v osrm-partition &>/dev/null; then
+if [ "$use_native" = "true" ]; then
     osrm-partition "$DATA_DIR/cartpath_roads.osrm"
 else
-    docker run --rm -t \
-        -v "$DATA_DIR:/data" \
-        osrm/osrm-backend \
-        osrm-partition /data/cartpath_roads.osrm
+    run_osrm_docker osrm-partition /data/cartpath_roads.osrm
 fi
 echo "  Done."
 
 echo ""
 echo "Step 3/3: osrm-customize (applying weights)..."
-if command -v osrm-customize &>/dev/null; then
+if [ "$use_native" = "true" ]; then
     osrm-customize "$DATA_DIR/cartpath_roads.osrm"
 else
-    docker run --rm -t \
-        -v "$DATA_DIR:/data" \
-        osrm/osrm-backend \
-        osrm-customize /data/cartpath_roads.osrm
+    run_osrm_docker osrm-customize /data/cartpath_roads.osrm
 fi
 echo "  Done."
 
 echo ""
 echo "OSRM graph built successfully!"
 echo "  Graph files: $DATA_DIR/cartpath_roads.osrm*"
-echo ""
-echo "To start the OSRM server:"
-echo "  osrm-routed --algorithm mld $DATA_DIR/cartpath_roads.osrm"
-echo "  # Or with Docker:"
-echo "  docker run -t -p 5000:5000 -v $DATA_DIR:/data osrm/osrm-backend osrm-routed --algorithm mld /data/cartpath_roads.osrm"
