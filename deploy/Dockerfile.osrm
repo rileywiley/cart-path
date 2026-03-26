@@ -1,16 +1,17 @@
 # CartPath — OSRM Backend (Multi-arch: ARM64 + x86)
 # The official osrm/osrm-backend image is x86-only.
 # This Dockerfile builds OSRM from source for any architecture.
-# Uses Ubuntu 22.04 because OSRM v5.27.1 fails to compile on 24.04
-# (missing <cstdint> include with GCC 13).
+# Uses Ubuntu 22.04 because OSRM v5.27.1 needs GCC 11 (not 13+).
 
-FROM ubuntu:22.04 AS builder
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build deps + runtime deps in one layer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake pkg-config git ca-certificates \
     libbz2-dev libxml2-dev libzip-dev liblua5.3-dev \
-    libboost-all-dev libtbb-dev \
+    libboost-all-dev libtbb-dev libexpat1-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Build OSRM from source
@@ -19,20 +20,9 @@ WORKDIR /src/osrm/build
 RUN cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_NODE_BINDINGS=OFF \
         -DCMAKE_CXX_FLAGS="-Wno-error=free-nonheap-object" \
     && make -j$(nproc) \
-    && make install
+    && make install \
+    && rm -rf /src/osrm
 
-# Runtime image
-FROM ubuntu:22.04
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    liblua5.3-0 libtbb2 libboost-filesystem1.74.0 \
-    libboost-iostreams1.74.0 libboost-program-options1.74.0 \
-    libboost-regex1.74.0 libboost-thread1.74.0 \
-    libexpat1 libbz2-1.0 libxml2 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local/bin/osrm-* /usr/local/bin/
-COPY --from=builder /usr/local/lib/lib* /usr/local/lib/
 RUN ldconfig
 
 EXPOSE 5000
