@@ -195,7 +195,7 @@ function AppContent() {
   }
 
   return (
-    <div className="app">
+    <div className={`app ${route ? 'app--has-route' : ''}`}>
       <Map
         center={userLocation || CENTER}
         route={route}
@@ -213,15 +213,6 @@ function AppContent() {
             onClear={handleClearRoute}
             loading={loading}
           />
-          {!authLoading && (
-            <button
-              className="btn-auth-toggle"
-              onClick={() => isAuthenticated ? setShowAccountMenu(!showAccountMenu) : setShowAuthModal(true)}
-              aria-label={isAuthenticated ? 'Account settings' : 'Sign in'}
-            >
-              {isAuthenticated ? (user.display_name || user.email.split('@')[0]) : 'Sign in'}
-            </button>
-          )}
         </div>
 
         {error && (
@@ -288,15 +279,17 @@ function AppContent() {
         {showAbout && (
           <About onClose={() => setShowAbout(false)} />
         )}
-
-        <button
-          className="btn-about-toggle"
-          onClick={() => setShowAbout(!showAbout)}
-          aria-label="About CartPath"
-        >
-          &#9432;
-        </button>
       </div>
+
+      {!authLoading && (
+        <button
+          className="btn-auth-toggle"
+          onClick={() => isAuthenticated ? setShowAccountMenu(!showAccountMenu) : setShowAuthModal(true)}
+          aria-label={isAuthenticated ? 'Account settings' : 'Sign in'}
+        >
+          {isAuthenticated ? (user.display_name || user.email.split('@')[0]) : 'Sign in'}
+        </button>
+      )}
     </div>
   );
 }
