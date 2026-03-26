@@ -4,7 +4,7 @@
  * NOTE: Offline routing is NOT supported in v1 — only the app UI is cached.
  */
 
-const CACHE_NAME = 'cartpath-v1';
+const CACHE_NAME = 'cartpath-v2';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -38,21 +38,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first: always try fresh content, fall back to cache if offline
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).then((response) => {
-        // Cache successful responses for static assets
-        if (response.ok && event.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      });
-    }).catch(() => {
-      // If both cache and network fail, return offline page
-      if (event.request.mode === 'navigate') {
-        return caches.match('/index.html');
+    fetch(event.request).then((response) => {
+      if (response.ok && event.request.method === 'GET') {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
       }
+      return response;
+    }).catch(() => {
+      return caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+      });
     })
   );
 });
