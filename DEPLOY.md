@@ -151,7 +151,7 @@ openssl rand -hex 32
 
 ## 7. Bootstrap the Data Pipeline
 
-This downloads road data, classifies speeds/surfaces, and builds the routing graph. Takes **5-10 minutes**:
+This downloads road data, classifies speeds/surfaces, and builds the routing graph. Takes **10-15 minutes** on first run (includes building OSRM from source for ARM64):
 
 ```bash
 make init

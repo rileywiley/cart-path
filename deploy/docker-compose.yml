@@ -12,7 +12,9 @@ services:
       - client-dist:/dist
 
   osrm:
-    image: osrm/osrm-backend
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.osrm
     container_name: cartpath-osrm
     restart: unless-stopped
     ports:
