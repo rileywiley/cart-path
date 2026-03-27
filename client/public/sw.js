@@ -4,7 +4,7 @@
  * NOTE: Offline routing is NOT supported in v1 — only the app UI is cached.
  */
 
-const CACHE_NAME = 'cartpath-v4';
+const CACHE_NAME = 'cartpath-v5';
 const APP_SHELL = [
   '/',
   '/index.html',

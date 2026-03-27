@@ -304,17 +304,17 @@ body {
 .route-alt-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: nowrap;
   flex-shrink: 0;
-  min-height: 36px;
-  padding: 6px 10px;
+  min-height: 32px;
+  padding: 4px 8px;
   background: #f9fafb;
   border: 2px solid transparent;
   border-radius: 8px;
   cursor: pointer;
   text-align: left;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -329,16 +329,16 @@ body {
 
 .route-alt-label {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .route-alt-info {
-  font-size: 0.8125rem;
+  font-size: 0.6875rem;
   color: var(--color-text-secondary);
 }
 
 .route-alt-badge {
-  font-size: 0.875rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   background: #d1fae5;
   color: #065f46;
@@ -351,10 +351,10 @@ body {
 }
 
 .route-residential-pct {
-  display: inline;
-  font-size: 0.8125rem;
+  display: block;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
-  margin-left: 8px;
+  margin-top: 2px;
 }
 
 .route-summary-text {
@@ -362,13 +362,16 @@ body {
   font-weight: 600;
   line-height: 1.3;
   word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
 }
 
 .route-panel-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .btn-close-route {

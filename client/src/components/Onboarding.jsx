@@ -17,18 +17,17 @@ export default function Onboarding({ onComplete }) {
 
   const handleRequestLocation = () => {
     setLocationStatus('requesting');
+    // Move to disclaimer immediately — don't block on GPS lock
+    // App.jsx watchPosition will pick up location in the background
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocationStatus('granted');
         setLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-        setStep(STEPS.DISCLAIMER);
       },
-      () => {
-        setLocationStatus('denied');
-        setStep(STEPS.DISCLAIMER);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
+      () => { /* denied — no-op, App.jsx handles this */ },
+      { enableHighAccuracy: false, timeout: 3000 }
     );
+    // Advance after a short beat so the browser permission prompt shows
+    setTimeout(() => setStep(STEPS.DISCLAIMER), 500);
   };
 
   const handleSkipLocation = () => {
