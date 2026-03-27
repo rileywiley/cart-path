@@ -284,9 +284,6 @@ export default function SearchBar({ userLocation, onRouteRequest, onClear, loadi
           {suggestions.map((s, i) => (
             <li key={s.place_name || i} role="option" onClick={() => handleSelectSuggestion(s)}>
               <span className="suggestion-name">{s.name}</span>
-              {s.category && s.category !== 'address' && (
-                <span className="suggestion-category">{s.category}</span>
-              )}
               <span className="suggestion-detail">{s.place_name}</span>
             </li>
           ))}
